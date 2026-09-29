@@ -261,6 +261,9 @@ footer{margin-top:2.2rem;padding-top:1.1rem;border-top:1px solid var(--line-soft
     <dl class="kv">
       <dt>Unlocks</dt><dd>28 July 2039, 00:00 UTC</dd>
       <dt>Remaining</dt><dd id="vRemain">—</dd>
+      <dt>Balance now</dt><dd id="nvBal">—</dd>
+      <dt>Vault address</dt><dd><a id="nvAddr" class="mono" href="#">—</a></dd>
+      <dt>Recorded in</dt><dd><a href="#/block/0">Genesis block (block 0)</a></dd>
     </dl>
   </div>
 </div>
@@ -647,7 +650,10 @@ el('findForm').addEventListener('submit',e=>{
     // TripleHash output. Resolve it rather than guessing.
     (async()=>{
       if(!CHAIN.length)await loadChain();
-      location.hash=(CHAIN.some(b=>b.hash===q)?'#/block/':'#/tx/')+q;
+      if(CHAIN.some(b=>b.hash===q)){location.hash='#/block/'+q;return;}
+      // Older than the recent window (genesis, say): ask the node directly.
+      try{await get('/block/'+q);location.hash='#/block/'+q;}
+      catch{location.hash='#/tx/'+q;}
     })(); return;
   }
   location.hash='#/address/'+q;
@@ -662,6 +668,11 @@ function remain(){
   return `${y} years, ${d-Math.floor(y*365.25)} days`;
 }
 el('vRemain').textContent=remain();
+// The vault is a real Dilithium5 address, pinned into genesis. Show it live.
+get('/vault/nevaeh').then(v=>{
+  el('nvBal').textContent=Number(v.balance).toLocaleString('en-GB',{maximumFractionDigits:8})+' NEV'+(v.locked?' · locked':'');
+  const a=el('nvAddr'); a.textContent=short(v.address,16); a.title=v.address; a.href='#/address/'+v.address;
+}).catch(()=>{});
 setInterval(()=>el('vRemain').textContent=remain(),3600000);
 
 loadTip(); loadChain().then(route); setInterval(loadTip,15000);
