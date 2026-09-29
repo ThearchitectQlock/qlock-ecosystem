@@ -120,18 +120,27 @@ set -euo pipefail
 URL="https://$DOMAIN/downloads"
 PKG="$PKG"
 
-if [ "\$(uname -s)" != Linux ] || [ "\$(uname -m)" != x86_64 ]; then
-    echo "This download is for 64-bit Linux (x86_64): a Linux PC, a Chromebook's"
-    echo "Linux terminal, or Windows through WSL. This machine is \$(uname -s) \$(uname -m)."
-    exit 1
-fi
-command -v curl >/dev/null || { echo "Needs curl:  sudo apt install curl"; exit 1; }
+# Linux comes from this server; macOS from the GitHub release (built by CI).
+RELEASES="https://github.com/ThearchitectQlock/qlock-ecosystem/releases/latest/download"
+SUMS="\$URL/SHA256SUMS"
+case "\$(uname -s)/\$(uname -m)" in
+    Linux/x86_64)  ;;
+    Darwin/arm64)  PKG=nev369-macos-arm64;  URL="\$RELEASES"; SUMS="\$RELEASES/SHA256SUMS" ;;
+    Darwin/x86_64) PKG=nev369-macos-x86_64; URL="\$RELEASES"; SUMS="\$RELEASES/SHA256SUMS" ;;
+    *)
+        echo "No download for \$(uname -s) \$(uname -m) yet."
+        echo "Windows: get nev369-windows-x86_64.zip from"
+        echo "  https://github.com/ThearchitectQlock/qlock-ecosystem/releases/latest"
+        exit 1 ;;
+esac
+command -v curl >/dev/null || { echo "Needs curl"; exit 1; }
+if command -v sha256sum >/dev/null; then SHA="sha256sum -c --quiet -"; else SHA="shasum -a 256 -c --quiet -"; fi
 
 TMP="\$(mktemp -d)"; trap 'rm -rf "\$TMP"' EXIT
 echo "Downloading NEV369..."
 curl -fsSL "\$URL/\$PKG.tar.gz" -o "\$TMP/\$PKG.tar.gz"
-curl -fsSL "\$URL/SHA256SUMS" -o "\$TMP/SHA256SUMS"
-( cd "\$TMP" && grep " \$PKG.tar.gz\\\$" SHA256SUMS | sha256sum -c --quiet - ) \\
+curl -fsSL "\$SUMS" -o "\$TMP/SHA256SUMS"
+( cd "\$TMP" && grep " \$PKG.tar.gz\\\$" SHA256SUMS | \$SHA ) \\
     || { echo "Checksum mismatch — download corrupted. Nothing was installed."; exit 1; }
 
 DEST="\$HOME/.local/share/nev369"
@@ -141,7 +150,7 @@ for b in nev369-mine nev369-wallet godshield nev369-node; do
     ln -sf "\$DEST/bin/\$b" "\$HOME/.local/bin/\$b"
 done
 
-if ldd "\$DEST/bin/godshield" 2>/dev/null | grep -q "not found"; then
+if command -v ldd >/dev/null && ldd "\$DEST/bin/godshield" 2>/dev/null | grep -q "not found"; then
     echo "Missing system libraries. Run:  sudo apt install -y libssl3 ca-certificates"
 fi
 

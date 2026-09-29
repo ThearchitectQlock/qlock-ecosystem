@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Miner downloads for Windows, macOS and Linux, published as a GitHub
+# Release. The website and install.sh point at the latest one.
+#
+# Run it: Actions → "Release miner" → Run workflow (or push a v* tag).
+#
+# Only nev369-node and the godshield CLI are built: neither needs OpenSSL
+# (rustls throughout), so they build natively on every runner. Both macOS
+# targets build on one Apple Silicon runner; x86_64 is a cross-compile,
+# which Rust and Apple's clang handle directly.
+# ═══════════════════════════════════════════════════════════════════════
+name: Release miner
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc,   name: nev369-windows-x86_64 }
+          - { os: macos-latest,   target: aarch64-apple-darwin,     name: nev369-macos-arm64 }
+          - { os: macos-latest,   target: x86_64-apple-darwin,      name: nev369-macos-x86_64 }
+          - { os: ubuntu-22.04,   target: x86_64-unknown-linux-gnu, name: nev369-linux-x86_64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build node and CLI
+        run: cargo build --release --locked --target ${{ matrix.target }} -p nev369-node -p godshield-cli
+      - name: Package
+        shell: bash
+        run: bash scripts/package-release.sh "${{ matrix.target }}" "${{ matrix.name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('miner-{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          name: NEV369 miner (${{ github.ref_type == 'tag' && github.ref_name || format('build {0}', github.run_number) }})
+          make_latest: "true"
+          files: dist/*
+          body: |
+            Mine NEV369 on your own computer. Each download holds the node, the
+            wallet CLI and the pinned chain spec, so it joins the live network
+            and refuses any other chain.
+
+            **Windows**: download `nev369-windows-x86_64.zip`, unzip it, double-click
+            `START-MINING.cmd`. Windows may say "Windows protected your PC" (the
+            files aren't code-signed yet): click *More info* → *Run anyway*, and
+            allow network access when the firewall asks (miners connect on port 4001).
+
+            **macOS / Linux**: in Terminal,
+            ```
+            curl -fsSL https://q-lock-ecosystem.com/downloads/install.sh | bash
+            nev369-mine
+            ```
+
+            First run creates your wallet. **There is no password recovery**: back
+            up the wallet file and remember the password.
+
+            Verify the downloads against `SHA256SUMS`. Check the chain yourself with
+            `python3 scripts/verify-chain.py` from the repository.

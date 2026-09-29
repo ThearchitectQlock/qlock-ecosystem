@@ -431,6 +431,18 @@ fn ct_eq(a: &[u8], b: &[u8]) -> bool {
 /// Best-effort: open the wallet link in the default browser.
 pub fn open_browser(url: &str) {
     use std::process::{Command, Stdio};
+    // Windows has none of the commands below. rundll32's URL handler opens
+    // the default browser and passes the link through untouched (no cmd.exe
+    // parsing of & or #).
+    #[cfg(windows)]
+    {
+        let _ = Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+        return;
+    }
     for cmd in ["xdg-open", "garcon-url-handler", "open"] {
         if Command::new(cmd)
             .arg(url)

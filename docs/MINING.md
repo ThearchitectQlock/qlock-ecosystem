@@ -26,8 +26,33 @@ wallet. Open your wallet any time with `nev369-wallet`.
 Your wallet and chain data live in `~/.nev369/`. **Back up
 `~/.nev369/wallet.json` and remember the password. There is no recovery.**
 
-The rest of this guide covers building from source, which you need on a
-Mac and which gives you more control.
+### Windows
+
+Download `nev369-windows-x86_64.zip` from the
+[latest release](https://github.com/ThearchitectQlock/qlock-ecosystem/releases/latest),
+unzip it anywhere, and double-click **START-MINING.cmd**. The first run creates
+your wallet. Open it any time with **OPEN-WALLET.cmd**. Your wallet and chain
+live in `%USERPROFILE%\.nev369\`.
+
+The files aren't code-signed yet, so Windows may show *"Windows protected your
+PC"*: click **More info → Run anyway**. Allow network access when the firewall
+asks; miners connect to each other on port 4001.
+
+### macOS
+
+The same two commands as Linux work on Apple Silicon and Intel Macs:
+
+```bash
+curl -fsSL https://q-lock-ecosystem.com/downloads/install.sh | bash
+nev369-mine
+```
+
+If `nev369-mine` isn't found afterwards, run `export PATH="$HOME/.local/bin:$PATH"`
+(add that line to `~/.zshrc` to keep it).
+
+Every download is listed in the release with its SHA-256 checksum.
+
+The rest of this guide covers building from source, which gives you more control.
 
 ---
 
