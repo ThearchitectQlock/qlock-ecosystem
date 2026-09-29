@@ -211,14 +211,15 @@ def main():
         return 0 if ok_all else 1
 
     info = get(a.node, "/info")
-    height = info["height"]
+    height = info["height"]          # the node reports its block COUNT
+    tip = height - 1                   # so the newest block's index is one less
     print(f"  node {a.node}: height {height}, difficulty {info.get('difficulty')}, "
           f"peers {info.get('peers', 'n/a')}\n")
 
     b0 = get(a.node, "/block/0")
     check(b0["hash"] == spec["NEV369_GENESIS_HASH"] and block_hash(b0) == b0["hash"],
           "the node's block 0 is exactly that genesis")
-    first = 0 if not a.last else max(1, height - a.last + 1)
+    first = 0 if not a.last else max(1, tip - a.last + 1)
     try:
         recent = {blk["index"]: blk for blk in get(a.node, "/chain?limit=200")["blocks"]}
     except FetchError as e:
@@ -226,8 +227,8 @@ def main():
         recent = {}
     public = a.node.startswith("https://")
     if first == 0 and height > 200 and public:
-        print(f"  Fetching {height - 199} older blocks one at a time "
-              f"(the public node allows 60 a minute, so about {(height - 199) // 60 + 1} min)\n")
+        print(f"  Fetching {height - 200} older blocks one at a time "
+              f"(the public node allows 60 a minute, so about {(height - 200) // 60 + 1} min)\n")
 
     def fetch(i):
         if i in recent:
@@ -240,7 +241,7 @@ def main():
     minted = 0
     bad = 0
     t0 = time.time()
-    for i in range(first, height + 1):
+    for i in range(first, tip + 1):
         b = fetch(i)
         h = block_hash(b)
         problems = []
@@ -267,9 +268,9 @@ def main():
                 print(f"  ✗ block {i}: " + "; ".join(problems))
         prev = b
         if i % 100 == 0 and i:
-            print(f"    … {i}/{height} blocks checked", flush=True)
+            print(f"    … {i}/{tip} blocks checked", flush=True)
 
-    n = height + 1 - first
+    n = tip + 1 - first
     check(bad == 0, f"{'all ' if first == 0 else 'newest '}{n} blocks: hashes recomputed and "
                     f"matching, proof-of-work met, each linked to the one before")
     expected_supply = ARCHITECT_PREMINE + NEVAEH_PREMINE + minted
