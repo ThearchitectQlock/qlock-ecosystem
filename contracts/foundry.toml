@@ -80,3 +80,10 @@ line_length = 100
 tab_width = 4
 bracket_spacing = false
 int_types = "long"
+
+# Forge's linter runs after every build by default, and deny = "warnings"
+# would turn its advisory findings into build failures. Findings are
+# reviewed (CI prints them in the "Lint (advisory)" step and they go into
+# the bridge audit); compiler warnings still fail the build.
+[lint]
+lint_on_build = false

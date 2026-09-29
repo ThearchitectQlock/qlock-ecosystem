@@ -156,6 +156,10 @@ def load_spec(path):
     return spec
 
 
+class FetchError(Exception):
+    pass
+
+
 def get(node, path):
     req = urllib.request.Request(node.rstrip("/") + path, headers={"User-Agent": "verify-chain"})
     for attempt in range(8):
@@ -164,8 +168,12 @@ def get(node, path):
                 return json.load(r)
         except urllib.error.HTTPError as e:
             if e.code not in (429, 503) or attempt == 7:
-                raise
+                raise FetchError(f"{req.full_url} returned HTTP {e.code}")
             time.sleep(2 + attempt)  # the public node allows 60 requests a minute
+        except urllib.error.URLError as e:
+            if attempt == 7:
+                raise FetchError(f"{req.full_url}: {e.reason}")
+            time.sleep(2 + attempt)
 
 
 def self_test():
@@ -211,7 +219,11 @@ def main():
     check(b0["hash"] == spec["NEV369_GENESIS_HASH"] and block_hash(b0) == b0["hash"],
           "the node's block 0 is exactly that genesis")
     first = 0 if not a.last else max(1, height - a.last + 1)
-    recent = {blk["index"]: blk for blk in get(a.node, "/chain?limit=200")["blocks"]}
+    try:
+        recent = {blk["index"]: blk for blk in get(a.node, "/chain?limit=200")["blocks"]}
+    except FetchError as e:
+        print(f"  (couldn't bulk-fetch recent blocks: {e}; fetching one by one)")
+        recent = {}
     public = a.node.startswith("https://")
     if first == 0 and height > 200 and public:
         print(f"  Fetching {height - 199} older blocks one at a time "
@@ -276,4 +288,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except FetchError as e:
+        print(f"\n  \u2717 couldn't download from the node: {e}")
+        sys.exit(2)
+    except KeyboardInterrupt:
+        sys.exit(130)

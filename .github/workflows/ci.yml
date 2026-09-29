@@ -231,6 +231,12 @@ jobs:
           forge install foundry-rs/forge-std --no-git
 
       - run: forge fmt --check
+
+      # Advisory: shows every linter finding in the log without failing
+      # the pipeline. Reviewed before any bridge deployment.
+      - name: Lint (advisory)
+        continue-on-error: true
+        run: forge lint
       - run: forge build --sizes
 
       - name: Test
