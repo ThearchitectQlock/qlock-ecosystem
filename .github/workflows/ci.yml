@@ -1,0 +1,370 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Q-Lock CI — one workspace, one pipeline
+#
+# REPLACES two workflows that contradicted each other:
+#
+#   ci.yml      — ran `cargo` with working-directory ./backend and npm
+#                 with ./frontend. Neither directory exists in this
+#                 layout. Every Rust step in it was failing or silently
+#                 running against nothing.
+#
+#   ci-cd.yml   — NEV369 only. Used `submodules: recursive` to pull in
+#                 godshield-core, which is an in-workspace member now, so
+#                 the submodule checkout was a no-op at best.
+#
+# Also changed:
+#
+#   - actions-rs/toolchain@v1 → dtolnay/rust-toolchain. actions-rs is
+#     archived and unmaintained; it pins a Node 16 runtime that GitHub
+#     has already begun rejecting.
+#   - The bypass grep moved out into scripts/security-guard.sh and grew
+#     six more checks. The version here targeted `main.rs` at the repo
+#     root — a file that no longer exists, so the guard passed
+#     unconditionally. It was dead and looked alive, which is worse than
+#     absent.
+# ═══════════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+
+  # ── Fast fail: guards and formatting ─────────────────────────────────
+  # First job on purpose. If a previously-exploitable bug has come back,
+  # nobody should wait twelve minutes for a release build to find out.
+
+  guards:
+    name: Security guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regression guards
+        run: bash scripts/security-guard.sh
+
+      - name: Vault material must never be committed
+        run: |
+          # Shares and vault files reconstruct keys that control real
+          # money. One committed share file is a permanent leak — git
+          # history is forever and the repo may go public.
+          BAD=$(git ls-files | grep -E '(_shares/|_vault\.json$|^keys\.json$|\.pem$|^\.env$)' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Vault, key or secret material is tracked by git:"
+            echo "$BAD"
+            echo "Remove from the index, rotate anything exposed, and check .gitignore."
+            exit 1
+          fi
+          echo "✓ no vault/key/secret material tracked"
+
+      - name: Cargo.lock must be committed
+        run: |
+          # Docker builds use --locked. Without a committed lockfile every
+          # image resolves its own dependency graph.
+          test -f Cargo.lock || {
+            echo "::error::Cargo.lock is missing. Run 'cargo generate-lockfile' and commit it."
+            exit 1
+          }
+
+      - name: Config table must match .env.example
+        run: |
+          # The pricing mismatch (docs advertised tiered fees, code
+          # charged everyone 0.3%) happened because two sources of truth
+          # drifted. Same failure mode applies to config.
+          MISSING=0
+          for v in $(grep -oE '^[A-Z][A-Z0-9_]+=' .env.example | tr -d '='); do
+            grep -q "\`$v\`" README.md || { echo "::warning::$v in .env.example but not documented in README.md"; MISSING=1; }
+          done
+          [ "$MISSING" -eq 0 ] && echo "✓ every env var is documented"
+          exit 0
+
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  # ── Rust workspace ───────────────────────────────────────────────────
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: [guards]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev clang
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [guards]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev clang
+
+      # Release mode: Dilithium5 keygen and signing in a debug build is
+      # slow enough to time the job out. The crypto tests are the ones
+      # that matter most, so they must actually run.
+      - name: Test workspace
+        run: cargo test --workspace --release --locked
+
+      # Named explicitly so a removal shows up as a failing step rather
+      # than a quietly smaller test count. security-guard.sh checks these
+      # exist; this proves they pass.
+      - name: Exploit regression tests
+        run: |
+          cargo test --release -p nev369-node -- --exact --nocapture \
+            chain::tests::canonical_encoding_prevents_field_boundary_collision \
+            chain::tests::architect_address_is_not_signature_exempt \
+            chain::tests::sender_must_match_public_key \
+            chain::tests::money_is_integer_not_float \
+            chain::tests::tampered_amount_fails_verification
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [clippy, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev clang
+      - name: Build release
+        run: cargo build --workspace --release --locked
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Prebuilt cargo-audit, run directly. It reads .cargo/audit.toml,
+      # where every accepted advisory is listed with the reason it does not
+      # apply and what removes it. New advisories still fail this job.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: cargo audit
+        run: cargo-audit audit
+
+  # ── Web apps ─────────────────────────────────────────────────────────
+  # apps/qlock-web (console) and apps/nev369-explorer are single static
+  # HTML files served by nginx — no npm build. Check the scripts parse and
+  # the genesis dedication is still on both.
+
+  web:
+    name: Web apps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Scripts parse
+        run: |
+          for f in apps/*/index.html; do
+            python3 -c 'import re,sys; print("\n".join(re.findall(r"<script>(.*?)</script>", open(sys.argv[1]).read(), re.S)))' "$f" > /tmp/app.js
+            node --check /tmp/app.js && echo "✓ $f"
+          done
+      - name: Genesis dedication present
+        run: |
+          grep -q "I taught myself Rust" apps/qlock-web/index.html
+          grep -q "block_dedication" apps/nev369-explorer/index.html
+          grep -q "I taught myself Rust" crates/nev369-node/src/genesis.rs
+          echo "✓ dedication in genesis, console and explorer"
+
+  # ── EVM contracts ────────────────────────────────────────────────────
+
+  contracts:
+    name: Solidity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      # Stable, not nightly: `forge fmt --check` must use the same
+      # formatter as the one that formatted the code, and nightly changes.
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      # v5.0.2 pinned exactly. The two source contracts as supplied
+      # imported Pausable from the v4 and v5 paths respectively and
+      # could not both resolve against one version.
+      - name: Install dependencies
+        run: |
+          forge install OpenZeppelin/openzeppelin-contracts@v5.0.2 --no-git
+          forge install foundry-rs/forge-std --no-git
+
+      - run: forge fmt --check
+      - run: forge build --sizes
+
+      - name: Test
+        env:
+          FOUNDRY_PROFILE: ci
+        run: forge test -vvv
+
+      - name: Coverage
+        run: forge coverage --report summary
+
+      - name: Bridge invariants must be declared
+        run: |
+          # A trusted bridge with no invariant tests is a bridge whose
+          # accounting nobody has stress-tested. Fail if they vanish.
+          grep -q 'function invariant_' test/*.t.sol || {
+            echo "::error::no invariant_ tests found in contracts/test"
+            exit 1
+          }
+
+      - name: Decimals must match NEV369 base units
+        run: |
+          # The fund-loss defect: wNEV shipped at 18 decimals against
+          # NEV369's 8, with no scaling anywhere in the bridge.
+          grep -q 'uint8 private constant DECIMALS = 8' src/wNEV.sol || {
+            echo "::error::wNEV decimals must be 8 to match chain.rs DECIMALS"
+            exit 1
+          }
+          grep -qE 'security/(Pausable|ReentrancyGuard)\.sol' src/*.sol && {
+            echo "::error::OpenZeppelin v4 import path found — pinned to v5 (utils/)"
+            exit 1
+          }
+          echo "OK"
+
+  # ── Container builds ─────────────────────────────────────────────────
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        include:
+          - image: nev369-node
+            dockerfile: docker/Dockerfile.nev369
+          - image: qlock-escrow
+            dockerfile: docker/Dockerfile.escrow
+          - image: nev369-bridge
+            dockerfile: docker/Dockerfile.bridge
+          - image: godshield-api
+            dockerfile: docker/Dockerfile.godshield
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.image }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: ${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  compose:
+    name: Compose validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: |
+          # Required vars are declared with ${VAR:?...} in compose, so
+          # `config` fails without them. Feed dummy values — this
+          # validates structure, not secrets.
+          cp .env.example .env
+          sed -i 's/^JWT_SECRET=$/JWT_SECRET=ci-dummy/' .env
+          docker compose --profile bridge --profile godshield config -q
+          docker compose -f docker-compose.nev369.yml config -q
+          echo "✓ compose config valid"
+
+      - name: No duplicate host ports
+        run: |
+          # The two compose files this replaced both bound :8080 and
+          # both declared an nginx on :80/:443, so they could not run
+          # together. Regression guard for that.
+          cp .env.example .env
+          sed -i 's/^JWT_SECRET=$/JWT_SECRET=ci-dummy/' .env
+          PORTS=$(docker compose --profile bridge --profile godshield config --format json \
+            | grep -oE '"published":"?[0-9]+' | grep -oE '[0-9]+' | sort)
+          DUPES=$(echo "$PORTS" | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "::error::Duplicate host port bindings: $DUPES"; exit 1
+          fi
+          echo "✓ host port bindings are unique"
+
+  # ── Publish ──────────────────────────────────────────────────────────
+
+  publish:
+    name: Publish to GHCR
+    needs: [docker, web, audit, compose, fmt, contracts]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: nev369-node
+            dockerfile: docker/Dockerfile.nev369
+          - image: qlock-escrow
+            dockerfile: docker/Dockerfile.escrow
+          - image: nev369-bridge
+            dockerfile: docker/Dockerfile.bridge
+          - image: godshield-api
+            dockerfile: docker/Dockerfile.godshield
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          # Tagged by SHA as well as latest. Deploy by SHA — `latest` is
+          # not a version, and rolling back to "the one before latest" is
+          # not a thing you can do.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - name: Published
+        run: |
+          echo "Pushed ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.sha }}"

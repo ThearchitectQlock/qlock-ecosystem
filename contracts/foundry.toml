@@ -1,0 +1,82 @@
+# ═══════════════════════════════════════════════════════════════════════
+# NEV369 EVM contracts
+#
+# Foundry rather than Hardhat: the rest of this repo is Rust, forge is
+# Rust, and invariant/fuzz testing is what a trusted bridge most needs.
+# A bridge's failure modes are "some sequence of calls breaks an
+# accounting invariant", which is exactly what forge's invariant runner
+# looks for and what a hand-written Hardhat suite tends to miss.
+#
+# ── THE IMPORT CONFLICT THIS PINS DOWN ────────────────────────────────
+#
+# The two contracts as supplied could not compile together:
+#
+#   wNEV-v2.sol        @openzeppelin/contracts/utils/Pausable.sol      (v5)
+#   NEV369Bridge-v2.sol @openzeppelin/contracts/security/Pausable.sol   (v4)
+#                       @openzeppelin/contracts/security/ReentrancyGuard.sol (v4)
+#
+# OpenZeppelin moved Pausable and ReentrancyGuard from security/ to
+# utils/ in v5. So whichever version is installed, one of the two files
+# fails to resolve its import. Not a warning — a hard build stop.
+#
+# Pinned to v5.0.2 and both contracts normalised to the v5 paths.
+# ═══════════════════════════════════════════════════════════════════════
+
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+
+solc_version = "0.8.24"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+
+# Bridge contracts hold mint authority over a token. A revert that
+# reaches production because a test passed on a stale artifact is not an
+# acceptable trade for build speed.
+force = false
+bytecode_hash = "none"
+cbor_metadata = false
+
+# Fail the build on any warning. In Solidity a warning is routinely a
+# shadowed variable or an unused return value, and in a bridge either can
+# be a fund-loss bug.
+deny_warnings = true
+
+fs_permissions = [{ access = "read", path = "./deployments" }]
+
+[profile.default.fuzz]
+runs = 4096
+max_test_rejects = 200_000
+
+[profile.default.invariant]
+runs = 512
+depth = 64
+fail_on_revert = false
+call_override = false
+
+# CI profile — heavier fuzzing, since a bridge invariant break found in
+# CI is free and found on mainnet is not.
+[profile.ci.fuzz]
+runs = 50_000
+
+[profile.ci.invariant]
+runs = 2_048
+depth = 128
+
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = false
+int_types = "long"

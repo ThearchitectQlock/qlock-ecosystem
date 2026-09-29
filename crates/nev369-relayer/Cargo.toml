@@ -1,0 +1,29 @@
+[package]
+name = "nev369-relayer"
+description = "Bridge coordinator. Holds no signing key — collects independent attestations and authorizes through godshield-bridge."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "nev369-relayer"
+path = "src/main.rs"
+
+[dependencies]
+godshield-bridge = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Constant-time credential comparison. A byte-by-byte == leaks the
+# matching prefix length through timing.
+subtle = { workspace = true }
+# eip712.rs — Ethereum's legacy Keccak-256, not NIST SHA3-256.
+sha3 = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }

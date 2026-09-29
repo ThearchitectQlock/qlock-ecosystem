@@ -1,0 +1,19 @@
+# Pinned so local dev, CI and the Docker builders agree.
+#
+# Not "stable": a consensus-critical binary should not silently change
+# compiler version between a local test run and a production image build.
+#
+# 1.88, not the earlier 1.75. The dependency tree moved on: alloy (the
+# bridge submitter) needs 1.81+, and much of the tokio/axum/libp2p
+# ecosystem's current releases need 1.80+. With 1.75 a fresh Cargo.lock
+# resolves crates the compiler cannot build. Cargo.toml sets
+# resolver = "3" and rust-version = "1.88", so lockfile generation picks
+# versions compatible with this toolchain.
+#
+# Bumping this is a deliberate act: rebuild the images, re-run the
+# multi-node test, then commit.
+
+[toolchain]
+channel = "1.88.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

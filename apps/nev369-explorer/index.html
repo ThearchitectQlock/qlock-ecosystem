@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEV369 Explorer</title>
+<meta name="description" content="Block explorer for NEV369 — post-quantum Layer-1.">
+<meta name="color-scheme" content="dark">
+
+<!--
+  apps/nev369-explorer/index.html — rebuilt
+
+  Shares the console's design language (deep indigo, gold, Sora +
+  JetBrains Mono + Instrument Serif) so the two read as one product, but
+  the job is different: this one is public, read-only, and the thing
+  someone who does not trust you uses to check the chain.
+
+  Three things that are not decoration:
+
+  EMISSION CURVE. Computed from the same constants as chain.rs — 369 NEV
+  halving every 437,000 blocks, clamped to MINEABLE_SUPPLY. The marker
+  shows where the chain actually is. Tokenomics stated in a table are a
+  claim; a curve with your position on it is a fact you can check.
+
+  HASH IDENTICONS. A deterministic 5x5 symmetric glyph derived from each
+  block hash. Two blocks that differ produce visibly different marks, so
+  a duplicated or replayed hash is something you SEE rather than read
+  character by character.
+
+  GENESIS. Block 0 carries the dedication. Opening it shows the
+  dedication, because it is part of the chain's record and not metadata.
+
+  Deep-linkable: #/block/12, #/tx/<hash>, #/address/<hex>. Endpoint
+  overridable with ?api= — an explorer you cannot re-point is not a
+  public record.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#080A13;
+  --surface:#11152447;
+  --line:#232942;
+  --line-soft:#1A1F33;
+  --text:#E9EBF4;
+  --text-dim:#9AA2BC;
+  --text-faint:#646C88;
+  --gold:#E3B657;
+  --gold-dim:#8A6E2E;
+  --violet:#9B7FE0;      /* TIME-LOCKED — this meaning only */
+  --mint:#4FD69C;
+  --rose:#F0736B;
+  --amber:#E09B4A;
+  --gap:clamp(1rem,2.4vw,1.8rem);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:400 15px/1.6 "Sora",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1000px 520px at 50% -10%, #1C2246 0%, transparent 62%),
+    radial-gradient(620px 340px at 90% 6%, #1A1636 0%, transparent 58%);
+  background-attachment:fixed;
+}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+h1,h2{margin:0;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+h1{font-size:1.3rem}
+h2{font-size:1rem}
+p{margin:0 0 .8em}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 var(--gap) 4rem}
+
+/* ── Header ── */
+header{padding:1.5rem 0 1.2rem;display:flex;flex-wrap:wrap;gap:.8rem 1.2rem;align-items:center}
+.brand{display:flex;align-items:center;gap:.65rem;margin-right:auto}
+.mark{width:34px;height:34px;border-radius:9px;flex:0 0 34px;
+  background:linear-gradient(140deg,var(--gold),#A97C24);display:grid;place-items:center;
+  box-shadow:0 0 0 1px #E3B65733,0 6px 20px -6px #E3B65766;
+  font:700 .82rem/1 "Sora";color:#1A1405;letter-spacing:-.04em}
+.brand .name{font-weight:700;letter-spacing:-.03em;font-size:1.02rem}
+.brand .sub{font-size:.66rem;color:var(--text-faint);letter-spacing:.1em;text-transform:uppercase}
+.endpoint{font-size:.72rem;color:var(--text-faint);
+  font-family:"JetBrains Mono",monospace;
+  border:1px solid var(--line-soft);border-radius:999px;padding:.24rem .7rem}
+.endpoint.live{border-color:#2A5A44;color:var(--mint)}
+.endpoint.dead{border-color:#5A2A2A;color:var(--rose)}
+
+/* ── Search ── */
+form.find{display:flex;gap:.6rem;margin-bottom:1.5rem}
+form.find input{flex:1;padding:.72rem .9rem;border:1px solid var(--line);border-radius:10px;
+  background:#0A0D18;color:var(--text);font:400 .9rem/1.4 "JetBrains Mono",monospace}
+form.find input:focus{border-color:var(--gold-dim);background:#0C0F1C}
+form.find button{background:linear-gradient(140deg,var(--gold),#B98C2C);border:0;border-radius:10px;
+  color:#1A1405;font-weight:600;padding:.72rem 1.3rem;cursor:pointer;
+  box-shadow:0 4px 16px -6px #E3B65799}
+form.find button:hover{filter:brightness(1.07)}
+
+/* ── Tip strip ── */
+.tip{display:grid;gap:.7rem;margin-bottom:1.1rem}
+@media(min-width:640px){.tip{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+  padding:.85rem .95rem;position:relative;overflow:hidden;backdrop-filter:blur(6px)}
+.stat::after{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,#FFFFFF1A,transparent)}
+.stat .k{font-size:.68rem;color:var(--text-faint);letter-spacing:.07em;text-transform:uppercase}
+.stat .v{font:500 1.45rem/1.15 "JetBrains Mono",monospace;font-variant-numeric:tabular-nums;
+  margin-top:.25rem;letter-spacing:-.02em}
+.stat .v.sm{font-size:.86rem;word-break:break-all;line-height:1.4}
+.stat.accent .v{color:var(--gold)}
+
+/* ── Emission ── */
+.emission{background:linear-gradient(180deg,#141829,#101426);border:1px solid var(--line-soft);
+  border-radius:14px;padding:1.15rem 1.2rem;margin-bottom:1.1rem;
+  box-shadow:0 1px 0 #FFFFFF08 inset,0 12px 32px -22px #000}
+.emission h2{margin-bottom:.15rem}
+.emission .lede{color:var(--text-dim);font-size:.84rem;margin-bottom:.9rem;max-width:62ch}
+.chart{width:100%;height:150px;display:block;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:.3rem 1.4rem;margin-top:.7rem;font-size:.76rem;color:var(--text-faint)}
+.legend b{color:var(--text);font-weight:500;font-family:"JetBrains Mono",monospace}
+.sw{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.35rem;vertical-align:-.02em}
+
+/* ── Cards ── */
+.card{background:linear-gradient(180deg,#141829,#101426);border:1px solid var(--line-soft);
+  border-radius:14px;padding:1.15rem 1.2rem;margin-bottom:1.1rem;
+  box-shadow:0 1px 0 #FFFFFF08 inset,0 12px 32px -22px #000}
+.card .lede{color:var(--text-dim);font-size:.84rem;margin-bottom:1rem;max-width:64ch}
+
+/* ── Block list ── */
+.blocks{display:flex;flex-direction:column;gap:.45rem}
+.blk{display:grid;grid-template-columns:auto 1fr auto;gap:.85rem;align-items:center;
+  padding:.7rem .85rem;border:1px solid var(--line-soft);border-radius:11px;
+  background:#0E1220;transition:border-color .15s,transform .15s;text-decoration:none;color:inherit}
+.blk:hover{border-color:#39406088;transform:translateX(2px);text-decoration:none}
+.blk .glyph{width:30px;height:30px;border-radius:7px;flex:0 0 30px;background:#0A0D18;
+  border:1px solid var(--line-soft);display:block}
+.blk .h{font:500 .95rem/1.2 "JetBrains Mono",monospace}
+.blk .m{font-size:.72rem;color:var(--text-faint);margin-top:.15rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .r{text-align:right;font-size:.72rem;color:var(--text-faint);white-space:nowrap}
+.blk .r b{display:block;font:500 .88rem/1.3 "JetBrains Mono",monospace;color:var(--text)}
+
+/* ── Detail ── */
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1.1rem;margin:0;font-size:.87rem}
+dl.kv dt{color:var(--text-faint);font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;
+  padding-top:.12rem}
+dl.kv dd{margin:0;font-family:"JetBrains Mono",monospace;word-break:break-all}
+
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-weight:500;color:var(--text-faint);font-size:.69rem;letter-spacing:.06em;
+  text-transform:uppercase;padding:.4rem .7rem .4rem 0;border-bottom:1px solid var(--line)}
+td{padding:.5rem .7rem .5rem 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+
+.pill{display:inline-block;font-size:.67rem;padding:.14rem .48rem;border-radius:999px;
+  border:1px solid currentColor}
+.pill.locked{color:var(--violet)}
+.pill.coinbase{color:var(--mint)}
+.pill.genesis{color:var(--gold)}
+.pill.warn{color:var(--amber)}
+.pill.in{color:var(--mint)}
+.pill.out{color:var(--rose)}
+.pill.pend{color:var(--amber)}
+td.num.in{color:var(--mint)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.copy{background:#0A0D18;border:1px solid var(--line);border-radius:8px;padding:.3rem .7rem;
+  font-size:.74rem;color:var(--text-dim);cursor:pointer}
+.copy:hover{border-color:var(--gold);color:var(--gold)}
+.addr-head{display:flex;align-items:center;justify-content:space-between;gap:.8rem}
+
+.msg{padding:.8rem .95rem;border-radius:10px;background:#070912;border:1px solid var(--line-soft);
+  font:400 .82rem/1.55 "JetBrains Mono",monospace;color:var(--text-dim);margin-bottom:1.1rem}
+.msg:empty{display:none}
+.msg.err{border-color:#5A2A2A;color:#FFB3AD;background:#160B0B}
+
+/* ── Genesis dedication ── */
+.ded-wrap{position:relative;border-radius:16px;padding:1.8rem 1.5rem 1.4rem;margin:1.1rem 0;
+  background:radial-gradient(660px 280px at 15% 0%,#241C3E 0%,transparent 70%),
+             linear-gradient(170deg,#161231,#0E1020);
+  border:1px solid #2A2350;overflow:hidden}
+.ded-wrap::before{content:"";position:absolute;inset:0;opacity:.15;pointer-events:none;
+  background-image:linear-gradient(var(--violet) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--violet) 1px,transparent 1px);
+  background-size:32px 32px;
+  mask-image:radial-gradient(480px 240px at 82% 12%,#000 0%,transparent 72%);
+  -webkit-mask-image:radial-gradient(480px 240px at 82% 12%,#000 0%,transparent 72%)}
+.ded-wrap>*{position:relative}
+.ded-tag{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);
+  margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.ded-tag::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,#E3B65744,transparent)}
+blockquote.ded{margin:0;padding-left:1.05rem;border-left:2px solid var(--gold);
+  font-family:"Instrument Serif",Georgia,serif;font-size:clamp(1.1rem,2.3vw,1.5rem);
+  line-height:1.5;color:#F2EDE2;max-width:46ch}
+blockquote.ded em{font-style:italic;color:var(--gold)}
+
+footer{margin-top:2.2rem;padding-top:1.1rem;border-top:1px solid var(--line-soft);
+  color:var(--text-faint);font-size:.78rem}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div class="mark">369</div>
+    <div><div class="name">NEV369</div><div class="sub">Explorer</div></div>
+  </div>
+  <span class="endpoint" id="endpoint">—</span>
+</header>
+
+<form class="find" id="findForm" role="search">
+  <input id="q" placeholder="Block height, block hash, transaction hash, or address"
+         aria-label="Search" spellcheck="false" autocomplete="off">
+  <button type="submit">Search</button>
+</form>
+
+<div class="msg" id="msg"></div>
+
+<!-- ═══ HOME ═══ -->
+<div id="home">
+  <div class="tip">
+    <div class="stat accent"><div class="k">Height</div><div class="v" id="tHeight">—</div></div>
+    <div class="stat"><div class="k">Difficulty</div><div class="v" id="tDiff">—</div></div>
+    <div class="stat"><div class="k">Mempool</div><div class="v" id="tMem">—</div></div>
+    <div class="stat"><div class="k">Tip</div><div class="v sm mono" id="tHash">—</div></div>
+  </div>
+
+  <div class="emission">
+    <h2>Emission</h2>
+    <p class="lede">369 NEV per block, halving every 437,000 blocks, clamped so total issuance
+    reaches the cap exactly. Every NEV either exists at genesis or gets mined.</p>
+    <svg class="chart" id="chart" viewBox="0 0 600 150" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--violet)"></i>Premine <b>46,900,000</b></span>
+      <span><i class="sw" style="background:var(--gold)"></i>Mined <b id="lgMined">—</b></span>
+      <span>Cap <b>369,369,369</b></span>
+      <span>Next halving <b id="lgHalve">437,000</b></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Latest blocks</h2>
+    <p class="lede">Newest first. Fork choice is by accumulated work, not height — a shorter
+    branch carrying more work wins.</p>
+    <div class="blocks" id="blocks"></div>
+  </div>
+
+  <div class="card">
+    <h2>Nevaeh's premine <span class="pill locked">time-locked</span></h2>
+    <p class="lede">36,900,000 NEV — 9.99% of the cap — unspendable until 28 July 2039.</p>
+    <dl class="kv">
+      <dt>Unlocks</dt><dd>28 July 2039, 00:00 UTC</dd>
+      <dt>Remaining</dt><dd id="vRemain">—</dd>
+    </dl>
+  </div>
+</div>
+
+<!-- ═══ BLOCK ═══ -->
+<div id="vBlock" hidden>
+  <div class="card">
+    <h2>Block <span class="mono" id="bIndex"></span></h2>
+    <p class="lede" id="bWhen"></p>
+    <dl class="kv">
+      <dt>Hash</dt><dd id="bHash"></dd>
+      <dt>Previous</dt><dd id="bPrev"></dd>
+      <dt>Miner</dt><dd id="bMiner"></dd>
+      <dt>Difficulty</dt><dd id="bDiff"></dd>
+      <dt>Nonce</dt><dd id="bNonce"></dd>
+      <dt>Transactions</dt><dd id="bCount"></dd>
+    </dl>
+  </div>
+  <div id="bDedWrap" hidden>
+    <div class="ded-wrap">
+      <div class="ded-tag">Genesis · Block 0 · Immutable</div>
+      <blockquote class="ded" id="bDed"></blockquote>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Transactions</h2>
+    <div id="bTxs"></div>
+  </div>
+</div>
+
+<!-- ═══ ADDRESS ═══ -->
+<div id="vAddr" hidden>
+  <div class="card">
+    <div class="addr-head">
+      <h2>Address</h2>
+      <button type="button" class="copy" id="aCopy">Copy address</button>
+    </div>
+    <p class="lede mono" id="aAddr" style="word-break:break-all;max-height:7.5em;overflow:auto"></p>
+    <dl class="kv">
+      <dt>Balance</dt><dd id="aBal"></dd>
+      <dt>Pending out</dt><dd id="aPend"></dd>
+      <dt>Next nonce</dt><dd id="aNonce"></dd>
+      <dt>Status</dt><dd id="aStatus"></dd>
+    </dl>
+    <p class="lede" id="aNote" style="margin-top:.9rem;margin-bottom:0"></p>
+  </div>
+  <div class="card">
+    <h2>Transactions</h2>
+    <div id="aTxs"><p class="lede" style="margin:0">Loading…</p></div>
+  </div>
+</div>
+
+<!-- ═══ TX ═══ -->
+<div id="vTx" hidden>
+  <div class="card">
+    <h2>Transaction</h2>
+    <p class="lede mono" id="xHash" style="word-break:break-all"></p>
+    <dl class="kv">
+      <dt>In block</dt><dd id="xBlock"></dd>
+      <dt>From</dt><dd id="xFrom"></dd>
+      <dt>To</dt><dd id="xTo"></dd>
+      <dt>Amount</dt><dd id="xAmt"></dd>
+      <dt>Fee</dt><dd id="xFee"></dd>
+      <dt>Crown tax</dt><dd id="xTax"></dd>
+      <dt>Nonce</dt><dd id="xNonce"></dd>
+      <dt>Memo</dt><dd id="xMemo"></dd>
+    </dl>
+  </div>
+</div>
+
+<footer>
+  Read-only. Figures come from the node above — point it at your own with
+  <span class="mono">?api=</span> and compare.
+</footer>
+</div>
+
+<script>
+'use strict';
+
+function storedApi(){try{return localStorage.getItem('nev369.api');}catch{return null;}}
+/* Where the node is. ?api= wins, then a saved choice, then the host:
+   the site proxies the node at /node, and anything local talks to
+   node-1 directly. */
+function defaultApi(){
+  const h=location.hostname;
+  if(location.protocol==='file:'||h===''||h==='localhost'||h==='127.0.0.1')return 'http://localhost:8080';
+  return location.origin+'/node';
+}
+const API=new URLSearchParams(location.search).get('api')||storedApi()||defaultApi();
+const el=i=>document.getElementById(i);
+el('endpoint').textContent=API.replace(/^https?:\/\//,'');
+
+/* Same constants as chain.rs. If these drift, the chart lies. */
+const UNITS=100000000n, PREMINE=46_900_000, MINEABLE=322_469_369, CAP=369_369_369;
+const HALVING=437_000, INITIAL_REWARD=369;
+
+let CHAIN=[];
+
+function nev(u){try{const n=BigInt(u);const w=n/UNITS;
+  const f=String(n%UNITS).padStart(8,'0').replace(/0+$/,'');
+  return w.toLocaleString()+(f?'.'+f:'');}catch{return String(u);}}
+const short=(h,n=16)=>h?h.slice(0,n)+'…':'—';
+const when=t=>t?new Date(Number(t)*1000).toISOString().replace('T',' ').replace(/\..+/,' UTC'):'';
+function say(t,e){const m=el('msg');m.className='msg'+(e?' err':'');m.textContent=t||'';}
+async function get(p){
+  const r=await fetch(API.replace(/\/$/,'')+p);
+  const t=await r.text(); let d; try{d=JSON.parse(t);}catch{d=t;}
+  if(!r.ok)throw new Error(`${r.status} — ${(d&&d.error)||r.statusText}`);
+  return d;
+}
+
+/* ── Hash identicon ──────────────────────────────────────────────────
+   Deterministic 5x5 symmetric glyph from the hash. Two blocks that
+   differ produce visibly different marks, so a duplicated or replayed
+   hash is something you SEE rather than compare character by character. */
+function glyph(hash,size=30){
+  if(!hash)return '';
+  const cells=[];
+  for(let y=0;y<5;y++)for(let x=0;x<3;x++){
+    const byte=parseInt(hash.substr((y*3+x)*2,2),16)||0;
+    cells.push(byte>127);
+  }
+  const hue=parseInt(hash.slice(-2),16)||0;
+  const lit=`hsl(${44+(hue%40)-20} 72% ${52+(hue%18)}%)`;
+  let r='';
+  for(let y=0;y<5;y++)for(let x=0;x<5;x++){
+    const mx=x<3?x:4-x;
+    if(cells[y*3+mx]) r+=`<rect x="${x*6}" y="${y*6}" width="6" height="6" fill="${lit}"/>`;
+  }
+  return `<svg class="glyph" viewBox="0 0 30 30" width="${size}" height="${size}"
+            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${r}</svg>`;
+}
+
+/* ── Emission curve ── */
+function minedAt(height){
+  let t=0; const full=Math.floor(height/HALVING);
+  for(let e=0;e<Math.min(full,64);e++) t+=HALVING*(INITIAL_REWARD/Math.pow(2,e));
+  if(full<64) t+=(height%HALVING)*(INITIAL_REWARD/Math.pow(2,full));
+  return Math.min(t,MINEABLE);
+}
+function drawChart(height){
+  const W=600,H=150,EPOCHS=10;
+  const pts=[]; const N=160;
+  for(let i=0;i<=N;i++){
+    const h=(i/N)*HALVING*EPOCHS;
+    pts.push([ (i/N)*W, H - (minedAt(h)/MINEABLE)*(H-14) - 7 ]);
+  }
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=line+` L ${W} ${H} L 0 ${H} Z`;
+
+  // Halving boundaries — the shape of the schedule made visible.
+  let ticks='';
+  for(let e=1;e<EPOCHS;e++){
+    const x=(e/EPOCHS)*W;
+    ticks+=`<line x1="${x}" y1="8" x2="${x}" y2="${H}" stroke="#232942" stroke-width="1"
+             stroke-dasharray="2 4"/>`;
+  }
+
+  const px=Math.min(height/(HALVING*EPOCHS),1)*W;
+  const py=H-(minedAt(height)/MINEABLE)*(H-14)-7;
+
+  el('chart').innerHTML=`
+    <defs>
+      <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#E3B657" stop-opacity=".30"/>
+        <stop offset="100%" stop-color="#E3B657" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${ticks}
+    <path d="${area}" fill="url(#fill)"/>
+    <path d="${line}" fill="none" stroke="#E3B657" stroke-width="2"
+          stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <line x1="${px}" y1="6" x2="${px}" y2="${H}" stroke="#4FD69C" stroke-width="1.5"
+          vector-effect="non-scaling-stroke"/>
+    <circle cx="${px}" cy="${py}" r="4" fill="#4FD69C"/>
+    <circle cx="${px}" cy="${py}" r="8" fill="#4FD69C" opacity=".22"/>`;
+
+  el('lgMined').textContent=Math.round(minedAt(height)).toLocaleString();
+  el('lgHalve').textContent=((Math.floor(height/HALVING)+1)*HALVING).toLocaleString();
+}
+
+/* ── Tip ── */
+async function loadTip(){
+  try{
+    const i=await get('/info');
+    const h=Number(i.height??0);
+    el('tHeight').textContent=h.toLocaleString();
+    el('tDiff').textContent=i.difficulty??'—';
+    el('tMem').textContent=i.mempool_size??i.mempool??'—';
+    el('tHash').textContent=short(i.latest_hash||i.tip||'',20);
+    el('endpoint').className='endpoint live';
+    drawChart(h);
+    say('');
+  }catch(e){
+    el('endpoint').className='endpoint dead';
+    say('Node unreachable at '+API+' — '+e.message,true);
+  }
+}
+
+/* ── Chain ── */
+async function loadChain(){
+  try{
+    const c=await get('/chain');
+    CHAIN=Array.isArray(c)?c:(c.chain||c.blocks||[]);
+    renderBlocks();
+  }catch(e){ el('blocks').innerHTML=`<p class="lede">Could not load blocks — ${e.message}</p>`; }
+}
+function renderBlocks(){
+  if(!CHAIN.length){el('blocks').innerHTML='<p class="lede">No blocks yet.</p>';return;}
+  el('blocks').innerHTML=CHAIN.slice(-18).reverse().map(b=>`
+    <a class="blk" href="#/block/${b.index}">
+      ${glyph(b.hash)}
+      <div>
+        <div class="h">#${Number(b.index).toLocaleString()}</div>
+        <div class="m mono">${short(b.hash,22)}</div>
+      </div>
+      <div class="r"><b>${(b.transactions||[]).length} tx</b>${when(b.timestamp).slice(0,16)}</div>
+    </a>`).join('');
+}
+
+/* ── Views ── */
+function only(id){['home','vBlock','vAddr','vTx'].forEach(v=>{el(v).hidden=(v!==id);});}
+function txTag(t){
+  if(t.sender==='NETWORK_REWARD')return '<span class="pill coinbase">coinbase</span>';
+  if(t.sender==='GENESIS')return '<span class="pill genesis">genesis</span>';
+  return '';
+}
+function showBlock(b){
+  el('bIndex').textContent='#'+Number(b.index).toLocaleString();
+  el('bWhen').textContent=when(b.timestamp);
+  el('bHash').textContent=b.hash;
+  el('bPrev').innerHTML=b.index>0?`<a href="#/block/${b.index-1}">${b.previous_hash}</a>`:b.previous_hash;
+  el('bMiner').textContent=b.miner||'—';
+  el('bDiff').textContent=b.difficulty??'—';
+  el('bNonce').textContent=Number(b.nonce??0).toLocaleString();
+  const txs=b.transactions||[];
+  el('bCount').textContent=txs.length;
+
+  // Block 0 carries the dedication. It is part of the record.
+  const ded=b.block_dedication||'';
+  const isGenesis=Number(b.index)===0&&ded;
+  el('bDedWrap').hidden=!isGenesis;
+  if(isGenesis)el('bDed').textContent=ded;
+
+  el('bTxs').innerHTML=txs.length
+    ?`<table><thead><tr><th>From</th><th>To</th><th class="num">Amount</th><th class="num">Fee</th><th></th></tr></thead><tbody>${
+      txs.map(t=>`<tr>
+        <td class="mono">${t.sender==='NETWORK_REWARD'||t.sender==='GENESIS'?t.sender
+          :`<a href="#/address/${t.sender}">${short(t.sender,12)}</a>`}</td>
+        <td class="mono"><a href="#/address/${t.recipient}">${short(t.recipient,12)}</a></td>
+        <td class="num">${nev(t.amount)}</td>
+        <td class="num">${nev(t.fee||0)}</td>
+        <td>${txTag(t)}</td></tr>`).join('')}</tbody></table>`
+    :'<p class="lede" style="margin:0">No transactions in this block.</p>';
+  only('vBlock'); say('');
+}
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SPECIAL=new Set(['NETWORK_REWARD','GENESIS']);
+function party(a){
+  if(SPECIAL.has(a))return esc(a);
+  return `<a href="#/address/${encodeURIComponent(a)}">${esc(short(a,12))}</a>`;
+}
+function addrRows(txs,me,pending){
+  return txs.map(t=>{
+    const dir=t.direction||(t.sender===me?(t.recipient===me?'self':'out'):'in');
+    const other=dir==='in'?t.sender:t.recipient;
+    const sign=dir==='in'?'+':(dir==='out'?'−':'');
+    const where=pending?'<span class="pill pend">pending</span>'
+      :`<a href="#/block/${Number(t.height)}">#${Number(t.height).toLocaleString()}</a>`;
+    const tag=SPECIAL.has(t.sender)?txTag(t)
+      :`<span class="pill ${dir==='in'?'in':'out'}">${dir==='self'?'self':dir}</span>`;
+    return `<tr>
+      <td>${where}</td>
+      <td>${tag}</td>
+      <td class="mono">${party(other)}</td>
+      <td class="num${dir==='in'?' in':''}">${sign}${nev(t.amount_units)}</td>
+      <td class="mono">${t.hash?`<a href="#/tx/${esc(t.hash)}">${esc(short(t.hash,10))}</a>`:'—'}</td>
+      <td>${esc(t.memo||'')}</td></tr>`;
+  }).join('');
+}
+async function showAddress(a){
+  el('aAddr').textContent=a; only('vAddr'); say('');
+  el('aTxs').innerHTML='<p class="lede" style="margin:0">Loading…</p>';
+  const placeholder=a==='ARCHITECT_SOVEREIGN_KEY_01'||a==='NEVAEH_NEV369_SOVEREIGN_VAULT';
+  let bal=null;
+  try{
+    bal=await get('/balance/'+encodeURIComponent(a));
+    el('aBal').textContent=nev(bal.balance_units??0)+' NEV';
+    el('aPend').textContent=nev(bal.pending_outgoing_units??0)+' NEV';
+    el('aNonce').textContent=bal.nonce??0;
+  }catch(e){
+    el('aBal').textContent='unknown'; el('aPend').textContent='—'; el('aNonce').textContent='—';
+    say('Balance lookup failed — '+e.message,true);
+  }
+  // The node knows which addresses genesis time-locks; the explorer
+  // asks rather than guessing from the address text.
+  const locked=!!(bal&&bal.timelocked);
+  el('aStatus').innerHTML=placeholder?'<span class="pill warn">placeholder — unspendable</span>'
+    :(locked?'<span class="pill locked">time-locked until 28 July 2039</span>'
+      :(bal?'spendable':'—'));
+  el('aNote').textContent=placeholder
+    ?'A placeholder address from a development genesis. No key maps to this string, so the '
+     +'balance credited to it cannot be spent. A production chain pins a real hex public key '
+     +'into genesis instead.'
+    :(locked?'Nevaeh’s vault. The chain refuses any transaction from this address before '
+     +'the unlock date — no key holder can move it early.':'');
+  try{
+    const h=await get('/address/'+encodeURIComponent(a)+'/transactions?limit=100');
+    const pend=h.pending||[], conf=h.transactions||[];
+    el('aTxs').innerHTML=(pend.length||conf.length)
+      ?`<div class="scroll"><table><thead><tr><th>Block</th><th></th><th>Counterparty</th>
+         <th class="num">Amount</th><th>Tx</th><th>Memo</th></tr></thead><tbody>${
+         addrRows(pend,a,true)+addrRows(conf,a,false)}</tbody></table></div>`
+      +(conf.length>=100?'<p class="lede" style="margin:.8rem 0 0">Showing the latest 100.</p>':'')
+      :'<p class="lede" style="margin:0">No transactions to or from this address yet.</p>';
+  }catch(e){
+    el('aTxs').innerHTML=`<p class="lede" style="margin:0">History unavailable — ${esc(e.message)}. `
+      +'This node may be older than the explorer.</p>';
+  }
+}
+el('aCopy').addEventListener('click',async()=>{
+  const b=el('aCopy'), a=el('aAddr').textContent;
+  try{await navigator.clipboard.writeText(a);b.textContent='Copied';}
+  catch{const r=document.createRange();r.selectNodeContents(el('aAddr'));
+    const sel=getSelection();sel.removeAllRanges();sel.addRange(r);b.textContent='Selected — press Ctrl+C';}
+  setTimeout(()=>b.textContent='Copy address',2000);
+});
+async function showTx(hash){
+  if(!CHAIN.length)await loadChain();
+  for(const b of CHAIN)for(const t of (b.transactions||[])){
+    if((t.hash||'')===hash){
+      el('xHash').textContent=hash;
+      el('xBlock').innerHTML=`<a href="#/block/${b.index}">#${b.index}</a>`;
+      el('xFrom').textContent=t.sender; el('xTo').textContent=t.recipient;
+      el('xAmt').textContent=nev(t.amount)+' NEV';
+      el('xFee').textContent=nev(t.fee||0)+' NEV';
+      el('xTax').textContent=nev(t.crown_tax||0)+' NEV (burned)';
+      el('xNonce').textContent=t.nonce??'—';
+      el('xMemo').textContent=t.payload_memo||'—';
+      only('vTx'); say(''); return;
+    }
+  }
+  // Not in the recent window: the node can look it up across the whole
+  // chain and the mempool.
+  try{
+    const r=await get('/tx/'+encodeURIComponent(hash));
+    const t=r.transaction||{};
+    el('xHash').textContent=hash;
+    el('xBlock').innerHTML=r.status==='confirmed'
+      ?`<a href="#/block/${r.block_index}">#${r.block_index}</a>`:'pending (mempool)';
+    el('xFrom').textContent=t.sender; el('xTo').textContent=t.recipient;
+    el('xAmt').textContent=nev(t.amount)+' NEV';
+    el('xFee').textContent=nev(t.fee||0)+' NEV';
+    el('xTax').textContent=nev(t.crown_tax||0)+' NEV (burned)';
+    el('xNonce').textContent=t.nonce??'—';
+    el('xMemo').textContent=t.payload_memo||'—';
+    only('vTx'); say(''); return;
+  }catch{}
+  say('No transaction with that hash on this node — confirmed or pending.',true);
+  only('home');
+}
+
+/* ── Routing ── */
+async function route(){
+  const h=location.hash.replace(/^#\/?/,'');
+  if(!h){only('home');say('');return;}
+  const [kind,...rest]=h.split('/'); const val=rest.join('/');
+  if(!CHAIN.length)await loadChain();
+  if(kind==='block'){
+    let b=CHAIN.find(b=>String(b.index)===val||b.hash===val);
+    // Older than the recent window the chain view holds — ask the node.
+    if(!b){try{b=await get('/block/'+encodeURIComponent(val));}catch{b=null;}}
+    b?showBlock(b):(say('Block '+val+' not found on this node.',true),only('home'));
+  } else if(kind==='tx'){ await showTx(val); }
+  else if(kind==='address'){ await showAddress(val); }
+  else only('home');
+}
+el('findForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const q=el('q').value.trim(); if(!q)return;
+  if(/^\d+$/.test(q)){location.hash='#/block/'+q;return;}
+  if(/^[0-9a-fA-F]{128}$/.test(q)){
+    // 128 hex is both a block hash and a transaction hash — both are
+    // TripleHash output. Resolve it rather than guessing.
+    (async()=>{
+      if(!CHAIN.length)await loadChain();
+      location.hash=(CHAIN.some(b=>b.hash===q)?'#/block/':'#/tx/')+q;
+    })(); return;
+  }
+  location.hash='#/address/'+q;
+});
+addEventListener('hashchange',route);
+
+/* ── Unlock ── */
+const UNLOCK=Date.UTC(2039,6,28,0,0,0);
+function remain(){
+  const ms=UNLOCK-Date.now(); if(ms<=0)return'unlocked';
+  const d=Math.floor(ms/86400000),y=Math.floor(d/365.25);
+  return `${y} years, ${d-Math.floor(y*365.25)} days`;
+}
+el('vRemain').textContent=remain();
+setInterval(()=>el('vRemain').textContent=remain(),3600000);
+
+loadTip(); loadChain().then(route); setInterval(loadTip,15000);
+</script>
+</body>
+</html>

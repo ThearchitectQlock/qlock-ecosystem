@@ -1,0 +1,85 @@
+# syntax=docker/dockerfile:1.7
+# ═══════════════════════════════════════════════════════════════════════
+# nev369-node
+#
+# FIXES vs. the earlier Dockerfile:
+#
+#   1. It copied `godshield/crates/godshield-core` from OUTSIDE the build
+#      context, because godshield-core was a sibling path dependency. A
+#      COPY cannot reach above the context root, so that build could not
+#      succeed from the repo root at all. godshield-core is now an
+#      in-workspace member and the whole problem disappears.
+#
+#   2. It copied `main.rs` from the repo root. The node is at
+#      crates/nev369-node/src/. There is no root main.rs.
+#
+#   3. HEALTHCHECK ran `curl -f http://localhost:8080/health`, but the
+#      runtime stage installed only libssl3 and ca-certificates. No curl.
+#      Every container would report unhealthy forever, which under
+#      `restart: unless-stopped` plus an orchestrator healthcheck means a
+#      permanent restart loop. curl is installed here.
+#
+#   4. The builder is pinned to the exact version in rust-toolchain.toml
+#      (1.88.0) so a local test and a production image are built by the
+#      same compiler.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Builder ────────────────────────────────────────────────────────────
+FROM rust:1.88.0-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev ca-certificates clang \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Workspace manifests first. Cargo.lock is committed and copied so the
+# image builds the exact dependency graph that was tested — a consensus
+# binary resolving a different patch version of a signature crate than
+# the one under test is a fork waiting to happen.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+
+# Every workspace member, because the workspace will not resolve with a
+# declared member missing.
+COPY crates ./crates
+
+# BuildKit cache mounts keep the registry and target dir out of the image
+# layers entirely. The binary has to be copied out of the cache mount
+# before it goes away — a plain `cargo build` here would leave nothing
+# behind for the runtime stage to find.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --locked --bin nev369-node \
+ && cp /app/target/release/nev369-node /usr/local/bin/nev369-node
+
+# ── Runtime ────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl3 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 -s /usr/sbin/nologin nev369 \
+    && mkdir -p /home/nev369/data && chown nev369:nev369 /home/nev369/data
+
+COPY --from=builder /usr/local/bin/nev369-node /usr/local/bin/nev369-node
+
+USER nev369
+WORKDIR /home/nev369
+
+# sled data. Named volume in compose — losing this means re-syncing from
+# peers, or re-running genesis if this is the only node.
+VOLUME ["/home/nev369/data"]
+
+# 8080 actix-web API · 4001 libp2p swarm (TCP)
+EXPOSE 8080 4001
+
+ENV RUST_LOG=info \
+    NEV369_DB_PATH=/home/nev369/data/chain.db \
+    NEV369_P2P_PORT=4001
+
+# start-period gives genesis construction room on a cold volume. Dilithium5
+# keygen plus the initial PoW at difficulty 4 is not instant.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["nev369-node"]

@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════════
+# cargo audit: accepted advisories
+#
+# Every entry says why it does not reach anything exploitable here, and
+# what removes it. CI runs `cargo-audit audit`, which reads this file; any
+# advisory NOT listed still fails the build. Review this list whenever
+# the dependencies below are upgraded, and delete entries that no longer
+# match (cargo audit warns about unused ignores).
+#
+# Real follow-up work, in order:
+#   1. qlock-escrow: sqlx 0.7 → 0.8            (clears 0363, 0071, webpki via sqlx)
+#   2. reqwest 0.11 → 0.12 everywhere          (clears webpki 0.101, h2 via hyper 0.14)
+#   3. nev369-node: libp2p 0.53 → 0.55+        (clears hickory-proto)
+#   4. nev369-submitter: alloy 0.8 → current   (clears ruint, if the lock bump didn't)
+# ═══════════════════════════════════════════════════════════════════════
+
+[advisories]
+ignore = [
+    # sharks 0.5: polynomial coefficients drawn from 1..255 instead of 0..255.
+    # Exploiting it needs the SAME secret split hundreds of times (Cure53:
+    # 500-1500 for 2-of-N). Each vault key is split once, in its ceremony.
+    # The crate is pinned exactly because docs/nevaeh-vault-ceremony.md
+    # transcribes its share format for the 2039 recovery. Rule: never
+    # re-split an existing key; re-key instead.
+    "RUSTSEC-2024-0398",
+
+    # sqlx 0.7: length-prefix overflow on values larger than 4 GiB. nginx
+    # caps request bodies at 1 MB (nginx.conf client_max_body_size), so no
+    # bound value can get near 4 GiB. Fixed by sqlx 0.8 (follow-up 1).
+    "RUSTSEC-2024-0363",
+
+    # rsa (Marvin timing attack): pulled in only by sqlx-mysql, which
+    # sqlx 0.7's macros compile even though Q-Lock uses Postgres only. No
+    # RSA operation ever runs. No fixed rsa release exists.
+    "RUSTSEC-2023-0071",
+
+    # rustls-webpki 0.101 (name constraints x2, CRL parsing panic): used by
+    # rustls 0.21 inside reqwest 0.11 for OUTBOUND calls to XRPL, Xaman and
+    # Stripe, over the public web PKI. The name-constraint bugs need a
+    # constrained intermediate CA to mis-issue; no CRLs are configured, so
+    # the CRL parser never runs. Fixed by reqwest 0.12 (follow-up 2).
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+
+    # h2 0.3 (unbounded empty DATA frames, low severity): in actix-http 3,
+    # whose HTTP port is bound to 127.0.0.1 behind nginx, which speaks
+    # HTTP/1.1 to it; and in hyper 0.14 as an outbound client only. No
+    # patched 0.3 release exists. Cleared by follow-up 2 plus actix-http 4.
+    "RUSTSEC-2026-0258",
+
+    # hickory-proto 0.24 (O(n²) name compression when ENCODING): reached via
+    # libp2p-mdns, which answers on the local network only, and libp2p-dns,
+    # which is linked but unused (p2p.rs resolves bootstrap names itself).
+    # Fixed by libp2p 0.55+ (follow-up 3).
+    "RUSTSEC-2026-0119",
+
+    # ruint (wrong overflow flags on shifts): alloy 0.8 in nev369-submitter,
+    # the ETH bridge submitter, which is not deployed ("coming soon") and does
+    # no shifts on untrusted amounts. qlock_ci_fix.sh bumps ruint in
+    # Cargo.lock; delete this entry once `cargo tree -i ruint` shows >= 1.20.
+    "RUSTSEC-2026-0220",
+
+    # ring 0.16 (AES panic with overflow checks): only via libp2p-quic, whose
+    # feature is now off. Kept in case the lockfile still lists it; cargo
+    # audit reports it as an unused ignore once it's gone, then delete it.
+    "RUSTSEC-2025-0009",
+]

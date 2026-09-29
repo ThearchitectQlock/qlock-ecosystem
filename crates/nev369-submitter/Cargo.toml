@@ -1,0 +1,29 @@
+[package]
+name = "nev369-submitter"
+description = "Carries threshold-authorized bridge mints to Ethereum. Holds a key for gas only — it cannot authorize a mint."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "nev369-submitter"
+path = "src/main.rs"
+
+[dependencies]
+# alloy, not ethers-rs — ethers is deprecated in favour of it.
+#
+# Pinned to a minor version on purpose. alloy's call() return shape has
+# changed between releases (a tuple with `._0` versus the bare value),
+# and that is the most likely first-build failure in this crate.
+alloy = { version = "0.8", features = ["providers", "signer-local", "contract", "sol-types", "network", "reqwest"] }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }

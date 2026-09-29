@@ -1,0 +1,13 @@
+# Provisioned automatically on first start. Without this file the
+# grafana container comes up with no data source and every dashboard is
+# blank, which reads as "monitoring is broken" rather than "monitoring
+# was never configured".
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

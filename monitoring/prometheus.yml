@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Prometheus — Q-Lock ecosystem
+#
+# Targets are service names on the compose network. The bridge and
+# GodShield targets only resolve when their profiles are up; Prometheus
+# shows them as down otherwise, which is accurate.
+# ═══════════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    stack: qlock
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+
+  # qlock-escrow serves /metrics on the internal network only — nginx has
+  # no location for it, because the counters reveal business volume.
+  #   qlock_http_requests_total, qlock_sends_total,
+  #   qlock_escrows_created_total, qlock_xumm_connects_total
+  - job_name: qlock-escrow
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['escrow:8080']
+        labels: { service: escrow }
+
+  # NEV369 nodes — height, difficulty, mempool, cumulative work, supply,
+  # reorg count and depth, tip age, blocks mined, tx accepted/rejected.
+  - job_name: nev369
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['nev369-node-1:8080']
+        labels: { node: node-1, role: miner }
+      - targets: ['nev369-node-2:8080']
+        labels: { node: node-2, role: validator }
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Postgres and Redis do not speak the Prometheus format. To monitor them,
+# add exporter sidecars to docker-compose.yml:
+#
+#   postgres-exporter:
+#     image: prometheuscommunity/postgres-exporter
+#     environment:
+#       DATA_SOURCE_NAME: postgresql://qlock:${DB_PASSWORD}@postgres:5432/qlock?sslmode=disable
+#     networks: [qlock-net]
+#   redis-exporter:
+#     image: oliver006/redis_exporter
+#     environment:
+#       REDIS_ADDR: redis://redis:6379
+#       REDIS_PASSWORD: ${REDIS_PASSWORD}
+#     networks: [qlock-net]
+#
+# then scrape postgres-exporter:9187 and redis-exporter:9121 here.

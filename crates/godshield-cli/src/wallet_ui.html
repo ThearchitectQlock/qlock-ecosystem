@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEV369 Wallet</title>
+<!--
+  Served by `godshield wallet open` from 127.0.0.1. Signing happens in that
+  process, never in this page. This page holds no key and no secret except
+  the session token, which it reads from the URL fragment and keeps in
+  sessionStorage for reloads. Same visual language as the explorer.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080A13; --card:#11152A; --card2:#0E1224; --line:#232942; --line-soft:#1A1F33;
+  --text:#E9EBF4; --dim:#9AA2BC; --faint:#646C88;
+  --gold:#E3B657; --gold-dim:#8A6E2E; --violet:#9B7FE0; --mint:#4FD69C; --rose:#F0736B; --amber:#E09B4A;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:400 15px/1.55 "Sora",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 480px at 50% -12%,#1C2246 0%,transparent 62%);background-attachment:fixed}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:720px;margin:0 auto;padding:1.4rem 1rem 3rem}
+a{color:var(--gold);text-decoration:none} a:hover{text-decoration:underline}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.4rem}
+.brand{display:flex;align-items:center;gap:.7rem;min-width:0}
+.mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(145deg,#2A2140,#161A30);border:1px solid var(--line);color:var(--gold);font:700 .8rem "Sora"}
+.brand h1{margin:0;font-size:1.05rem;font-weight:600;letter-spacing:-.01em}
+.brand .lbl{color:var(--faint);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{display:flex;align-items:center;gap:.45rem;font-size:.76rem;color:var(--dim);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.dot.on{background:var(--mint);box-shadow:0 0 0 3px #4FD69C22} .dot.off{background:var(--rose)}
+
+.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line-soft);
+  border-radius:14px;padding:1.3rem 1.3rem 1.2rem;margin-bottom:1rem}
+.eyebrow{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:.35rem}
+.balance{font-size:clamp(1.9rem,6vw,2.6rem);font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.balance .unit{font-size:.45em;color:var(--dim);font-weight:500;margin-left:.3rem;letter-spacing:0}
+.sub{display:flex;flex-wrap:wrap;gap:.4rem 1rem;margin-top:.7rem;font-size:.8rem;color:var(--dim)}
+.pill{display:inline-block;font-size:.68rem;padding:.16rem .55rem;border-radius:999px;border:1px solid currentColor;
+  letter-spacing:.02em;line-height:1.5}
+.pill.ok{color:var(--mint)} .pill.locked{color:var(--violet)} .pill.pend{color:var(--amber)}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;padding:.3rem;background:var(--card2);
+  border:1px solid var(--line-soft);border-radius:12px;margin-bottom:1rem}
+.tabs button{border:0;background:none;padding:.6rem .4rem;border-radius:9px;color:var(--dim);cursor:pointer;font-weight:500}
+.tabs button[aria-selected="true"]{background:#1B2140;color:var(--text)}
+
+label{display:block;font-size:.76rem;color:var(--dim);margin:0 0 .35rem}
+.field{margin-bottom:1rem}
+input,textarea{width:100%;background:#0B0F1E;border:1px solid var(--line);border-radius:10px;padding:.7rem .8rem}
+textarea{resize:vertical;min-height:4.6rem;font-family:"JetBrains Mono",monospace;font-size:.72rem;word-break:break-all}
+input:focus,textarea:focus{border-color:var(--gold-dim);outline:none}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.hint{font-size:.72rem;color:var(--faint);margin-top:.3rem}
+.hint.bad{color:var(--rose)} .hint.good{color:var(--mint)}
+.inline{display:flex;gap:.5rem} .inline input{flex:1}
+
+.btn{border:1px solid var(--line);background:#161B33;border-radius:10px;padding:.68rem 1rem;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--gold-dim)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#17130A}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.small{padding:.45rem .7rem;font-size:.8rem}
+.actions{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap;margin-top:.4rem}
+
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;margin:0 0 1rem;font-size:.86rem}
+dl.kv dt{color:var(--faint);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;padding-top:.15rem}
+dl.kv dd{margin:0;word-break:break-all}
+.total{border-top:1px solid var(--line-soft);padding-top:.5rem;font-weight:600}
+
+.msg{border-radius:10px;padding:.7rem .85rem;font-size:.84rem;margin-bottom:1rem;border:1px solid}
+.msg.err{color:#FFD4D0;background:#2A1216;border-color:#5A2329}
+.msg.ok{color:#D6FBEA;background:#0F2A20;border-color:#1F5A43}
+.msg.info{color:var(--dim);background:#10152A;border-color:var(--line)}
+
+.addr{background:#0B0F1E;border:1px solid var(--line);border-radius:10px;padding:.8rem;
+  font:400 .7rem/1.5 "JetBrains Mono",monospace;word-break:break-all;max-height:9.5rem;overflow:auto;color:var(--dim)}
+.addr .ends{color:var(--text)}
+
+.tx{display:grid;grid-template-columns:auto 1fr auto;gap:.2rem .8rem;align-items:center;
+  padding:.8rem 0;border-bottom:1px solid var(--line-soft)}
+.tx:last-child{border-bottom:0}
+.ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:.9rem;grid-row:span 2}
+.ic.in{background:#123325;color:var(--mint)} .ic.out{background:#33161A;color:var(--rose)} .ic.self{background:#1B2140;color:var(--dim)}
+.tx .who{font-size:.86rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx .amt{font-weight:600;text-align:right;white-space:nowrap}
+.tx .amt.in{color:var(--mint)}
+.tx .meta{font-size:.72rem;color:var(--faint);grid-column:2/4;display:flex;gap:.8rem;flex-wrap:wrap}
+.empty{color:var(--faint);font-size:.86rem;padding:.4rem 0}
+footer{color:var(--faint);font-size:.72rem;text-align:center;margin-top:1.6rem;line-height:1.6}
+[hidden]{display:none!important}
+@media (max-width:520px){
+  .row2{grid-template-columns:1fr}
+  .card{padding:1.1rem}
+  header{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div class="mark" aria-hidden="true">369</div>
+    <div style="min-width:0">
+      <h1>NEV369 Wallet</h1>
+      <div class="lbl" id="label">—</div>
+    </div>
+  </div>
+  <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="nodeStatus">Connecting…</span></div>
+</header>
+
+<div class="msg err" id="fatal" hidden></div>
+
+<main id="app">
+  <section class="card" aria-labelledby="balLbl">
+    <div class="eyebrow" id="balLbl">Balance</div>
+    <div class="balance mono"><span id="bal">—</span><span class="unit">NEV</span></div>
+    <div class="sub">
+      <span id="stat"></span>
+      <span id="pend" hidden></span>
+      <span id="nonceLine" class="mono"></span>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Wallet">
+    <button role="tab" id="tab-send" aria-selected="true" aria-controls="p-send">Send</button>
+    <button role="tab" id="tab-receive" aria-selected="false" aria-controls="p-receive">Receive</button>
+    <button role="tab" id="tab-history" aria-selected="false" aria-controls="p-history">History</button>
+  </nav>
+
+  <!-- ── Send ── -->
+  <section class="card" id="p-send" role="tabpanel" aria-labelledby="tab-send">
+    <div id="sendForm">
+      <div class="field">
+        <label for="to">Recipient address</label>
+        <textarea id="to" spellcheck="false" autocomplete="off"
+          placeholder="Paste the recipient's NEV369 address — 5,184 characters"></textarea>
+        <div class="hint" id="toHint">A NEV369 address is a long hex string. Ask the recipient to copy it from their wallet's Receive tab.</div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="amount">Amount (NEV)</label>
+          <div class="inline">
+            <input id="amount" class="mono" inputmode="decimal" autocomplete="off" placeholder="0.00">
+            <button class="btn small" type="button" id="max">Max</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fee">Fee (NEV)</label>
+          <input id="fee" class="mono" inputmode="decimal" autocomplete="off" value="0">
+          <div class="hint">Optional. Miners pick higher fees first.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="memo">Memo (optional, public)</label>
+        <input id="memo" maxlength="256" autocomplete="off" placeholder="Visible on the explorer">
+      </div>
+      <div class="msg err" id="formErr" hidden></div>
+      <div class="actions"><button class="btn primary" type="button" id="review">Review</button></div>
+    </div>
+
+    <div id="reviewPane" hidden>
+      <div class="eyebrow">Review and sign</div>
+      <dl class="kv mono" id="summary"></dl>
+      <div class="field" id="pwField">
+        <label for="password">Wallet password</label>
+        <input id="password" type="password" autocomplete="current-password">
+        <div class="hint">Unlocks your key on this computer for this one signature.</div>
+      </div>
+      <div class="field" id="shareField" hidden>
+        <label for="shares" id="sharesLbl">Share files</label>
+        <input id="shares" type="file" accept=".json,application/json" multiple>
+        <div class="hint">Read on this computer only. The key is rebuilt in memory, used once, and dropped.</div>
+      </div>
+      <div class="msg err" id="sendErr" hidden></div>
+      <div class="actions">
+        <button class="btn" type="button" id="back">Back</button>
+        <button class="btn primary" type="button" id="sign">Sign &amp; send</button>
+      </div>
+    </div>
+
+    <div id="donePane" hidden>
+      <div class="msg ok"><strong>Sent.</strong> The node accepted it and broadcast it to peers. It confirms with the next block.</div>
+      <dl class="kv mono"><dt>Tx</dt><dd id="doneHash"></dd></dl>
+      <div class="actions">
+        <a class="btn" id="doneLink" target="_blank" rel="noopener">View on explorer</a>
+        <button class="btn primary" type="button" id="again">New transfer</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Receive ── -->
+  <section class="card" id="p-receive" role="tabpanel" aria-labelledby="tab-receive" hidden>
+    <div class="eyebrow">Your NEV369 address</div>
+    <p style="margin:.2rem 0 .8rem;color:var(--dim);font-size:.86rem">
+      Share this whole string to receive NEV. It is your public key — safe to share, and it can't be used to spend.
+    </p>
+    <div class="addr" id="addr" tabindex="0" aria-label="Your address"></div>
+    <div class="actions" style="justify-content:flex-start;margin-top:.8rem">
+      <button class="btn primary" type="button" id="copy">Copy address</button>
+      <button class="btn" type="button" id="download">Download .txt</button>
+      <a class="btn" id="addrLink" target="_blank" rel="noopener">View on explorer</a>
+    </div>
+    <div class="hint" id="copyHint" aria-live="polite"></div>
+  </section>
+
+  <!-- ── History ── -->
+  <section class="card" id="p-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+    <div class="eyebrow">Recent activity</div>
+    <div id="history"><div class="empty">Loading…</div></div>
+  </section>
+</main>
+
+<footer>
+  Your key stays on this computer. This page is served by <span class="mono">godshield wallet</span> on 127.0.0.1<br>
+  and signs with the same code the NEV369 node verifies with.
+</footer>
+</div>
+
+<script>
+'use strict';
+const el = id => document.getElementById(id);
+const UNITS = 100000000n;
+const ADDRESS_LEN = 5184;
+let STATE = null, ACCT = null, PENDING_TRANSFER = null;
+
+/* ── Session token: from #t=… once, then sessionStorage for reloads ── */
+const TOKEN = (() => {
+  let t = '';
+  const m = location.hash.match(/t=([0-9a-f]{64})/);
+  if (m) {
+    t = m[1];
+    try { sessionStorage.setItem('nev369-wallet-token', t); } catch (_) {}
+    history.replaceState(null, '', location.pathname);
+  } else {
+    try { t = sessionStorage.getItem('nev369-wallet-token') || ''; } catch (_) {}
+  }
+  return t;
+})();
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    ...opts,
+    headers: { 'X-Wallet-Token': TOKEN, 'Content-Type': 'application/json' },
+  });
+  let d; try { d = await r.json(); } catch (_) { d = { error: r.statusText }; }
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+
+/* ── NEV amounts: exact, via BigInt ── */
+function fmt(units) {
+  try {
+    const n = BigInt(units), w = n / UNITS;
+    const f = String(n % UNITS).padStart(8, '0').replace(/0+$/, '');
+    return w.toLocaleString('en-GB') + (f ? '.' + f : '');
+  } catch (_) { return String(units); }
+}
+function parseNev(s, allowZero) {
+  s = String(s).trim();
+  if (!/^\d*(\.\d{0,8})?$/.test(s) || s === '' || s === '.') throw new Error('Enter a number of NEV, up to 8 decimal places.');
+  const [w, f = ''] = s.split('.');
+  const v = BigInt(w || '0') * UNITS + BigInt((f + '00000000').slice(0, 8));
+  if (!allowZero && v === 0n) throw new Error('Amount must be more than zero.');
+  return v;
+}
+const short = a => a && a.length > 28 ? a.slice(0, 16) + '…' + a.slice(-8) : (a || '—');
+const when = t => t ? new Date(Number(t) * 1000).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const explorer = frag => (STATE && STATE.explorer ? STATE.explorer.replace(/#.*$/, '') : '') + frag;
+function show(id, text) { const m = el(id); m.textContent = text || ''; m.hidden = !text; }
+
+/* ── Tabs ── */
+const TABS = ['send', 'receive', 'history'];
+function tab(name) {
+  TABS.forEach(t => {
+    el('tab-' + t).setAttribute('aria-selected', String(t === name));
+    el('p-' + t).hidden = t !== name;
+  });
+}
+TABS.forEach(t => el('tab-' + t).addEventListener('click', () => tab(t)));
+
+/* ── Load ── */
+async function loadState() {
+  STATE = await api('/api/state');
+  el('label').textContent = STATE.label + (STATE.kind === 'vault' ? ' · vault' : '');
+  const a = STATE.address;
+  el('addr').innerHTML = '<span class="ends">' + esc(a.slice(0, 16)) + '</span>' + esc(a.slice(16, -8)) +
+    '<span class="ends">' + esc(a.slice(-8)) + '</span>';
+  el('addrLink').href = explorer('#/address/' + a);
+  if (STATE.kind === 'vault') {
+    el('pwField').hidden = true; el('shareField').hidden = false;
+    el('sharesLbl').textContent = `Share files — choose ${STATE.shares_required} or more`;
+  }
+}
+
+async function refresh() {
+  let d;
+  try { d = await api('/api/account'); }
+  catch (e) { return fatal(e.message); }
+  ACCT = d;
+  if (!d.online) {
+    el('dot').className = 'dot off';
+    el('nodeStatus').textContent = 'Node offline';
+    el('bal').textContent = '—';
+    el('stat').innerHTML = '<span class="pill pend">cannot reach node</span>';
+    el('history').innerHTML = '<div class="empty">' + esc(d.error || 'The node is not reachable.') + '</div>';
+    return;
+  }
+  el('dot').className = 'dot on';
+  el('nodeStatus').textContent = d.height != null ? 'Online · block ' + Number(d.height).toLocaleString('en-GB') : 'Online';
+  el('bal').textContent = fmt(d.balance_units);
+  el('stat').innerHTML = d.timelocked ? '<span class="pill locked">time-locked</span>' : '<span class="pill ok">spendable</span>';
+  const pend = BigInt(d.pending_outgoing_units || 0);
+  el('pend').hidden = pend === 0n;
+  el('pend').innerHTML = '<span class="pill pend">' + fmt(pend) + ' NEV pending</span>';
+  el('nonceLine').textContent = 'nonce ' + d.nonce;
+  renderHistory(d.history);
+}
+
+function renderHistory(h) {
+  if (!h || (!h.transactions && !h.pending)) {
+    el('history').innerHTML = '<div class="empty">History needs a node with the /address endpoint.</div>';
+    return;
+  }
+  const rows = [];
+  for (const t of h.pending || []) rows.push(txRow(t, true));
+  for (const t of h.transactions || []) rows.push(txRow(t, false));
+  el('history').innerHTML = rows.length ? rows.join('') : '<div class="empty">No transactions yet. Share your address from the Receive tab.</div>';
+}
+function txRow(t, pending) {
+  const dir = t.direction;
+  const who = dir === 'in' ? t.sender : t.recipient;
+  const name = who === 'NETWORK_REWARD' ? 'Mining reward' : who === 'GENESIS' ? 'Genesis premine' : short(who);
+  const verb = dir === 'in' ? 'From' : dir === 'out' ? 'To' : 'Self';
+  const sign = dir === 'in' ? '+' : dir === 'out' ? '−' : '';
+  const icon = dir === 'in' ? '↓' : dir === 'out' ? '↑' : '↺';
+  const status = pending ? '<span class="pill pend">pending</span>'
+    : `block ${esc(t.height)} · ${esc(t.confirmations)} conf · ${esc(when(t.block_timestamp))}`;
+  const memo = t.memo ? ` · “${esc(t.memo)}”` : '';
+  return `<div class="tx">
+    <div class="ic ${esc(dir)}" aria-hidden="true">${icon}</div>
+    <div class="who">${verb} <span class="mono">${esc(name)}</span></div>
+    <div class="amt mono ${dir === 'in' ? 'in' : ''}">${sign}${fmt(t.amount_units)} NEV</div>
+    <div class="meta"><span>${status}${memo}</span>
+      <a href="${esc(explorer('#/tx/' + t.hash))}" target="_blank" rel="noopener">details</a></div>
+  </div>`;
+}
+
+function fatal(text) { show('fatal', text); el('dot').className = 'dot off'; el('nodeStatus').textContent = 'Not connected'; }
+
+/* ── Send ── */
+el('to').addEventListener('input', () => {
+  const v = el('to').value.replace(/\s+/g, '');
+  const hint = el('toHint');
+  if (!v) { hint.className = 'hint'; hint.textContent = 'A NEV369 address is a long hex string. Ask the recipient to copy it from their wallet\'s Receive tab.'; return; }
+  if (!/^[0-9a-fA-F]*$/.test(v)) { hint.className = 'hint bad'; hint.textContent = 'Only 0–9 and a–f belong in an address.'; return; }
+  if (v.length !== ADDRESS_LEN) { hint.className = 'hint bad'; hint.textContent = `${v.length.toLocaleString()} of ${ADDRESS_LEN.toLocaleString()} characters — the address looks incomplete.`; return; }
+  if (STATE && v.toLowerCase() === STATE.address.toLowerCase()) { hint.className = 'hint bad'; hint.textContent = 'That is your own address.'; return; }
+  hint.className = 'hint good'; hint.textContent = 'Valid address · ' + short(v);
+});
+
+el('max').addEventListener('click', () => {
+  if (!ACCT || !ACCT.online) return;
+  let fee = 0n; try { fee = parseNev(el('fee').value || '0', true); } catch (_) {}
+  const bal = BigInt(ACCT.balance_units) - fee;
+  el('amount').value = bal > 0n ? fmt(bal).replace(/,/g, '') : '0';
+});
+
+el('review').addEventListener('click', () => {
+  show('formErr', '');
+  try {
+    const to = el('to').value.replace(/\s+/g, '').toLowerCase();
+    if (!/^[0-9a-f]+$/.test(to) || to.length !== ADDRESS_LEN) throw new Error('The recipient address is not a complete NEV369 address.');
+    if (STATE && to === STATE.address.toLowerCase()) throw new Error('That is your own address.');
+    const amount = parseNev(el('amount').value, false);
+    const fee = parseNev(el('fee').value || '0', true);
+    if (!ACCT || !ACCT.online) throw new Error('The node is offline — try again when it is back.');
+    if (ACCT.timelocked) throw new Error('This wallet is time-locked and cannot send yet.');
+    if (BigInt(ACCT.pending_outgoing_units || 0) > 0n) throw new Error('You have a transaction waiting for the next block. Send this one after it confirms.');
+    const bal = BigInt(ACCT.balance_units);
+    if (amount + fee > bal) throw new Error(`Not enough NEV: this needs ${fmt(amount + fee)}, the balance is ${fmt(bal)}.`);
+    const memo = el('memo').value;
+    PENDING_TRANSFER = { to, amount: el('amount').value.trim(), fee: (el('fee').value || '0').trim(), memo };
+    el('summary').innerHTML =
+      `<dt>To</dt><dd>${esc(short(to))}</dd>` +
+      `<dt>Amount</dt><dd>${fmt(amount)} NEV</dd>` +
+      `<dt>Fee</dt><dd>${fmt(fee)} NEV</dd>` +
+      (memo ? `<dt>Memo</dt><dd>${esc(memo)}</dd>` : '') +
+      `<dt class="total">Total</dt><dd class="total">${fmt(amount + fee)} NEV</dd>` +
+      `<dt>After</dt><dd>${fmt(bal - amount - fee)} NEV</dd>`;
+    el('sendForm').hidden = true; el('reviewPane').hidden = false; show('sendErr', '');
+    (STATE.kind === 'vault' ? el('shares') : el('password')).focus();
+  } catch (e) { show('formErr', e.message); }
+});
+
+el('back').addEventListener('click', () => {
+  el('password').value = ''; el('shares').value = '';
+  el('reviewPane').hidden = true; el('sendForm').hidden = false;
+});
+
+el('sign').addEventListener('click', async () => {
+  if (!PENDING_TRANSFER) return;
+  const btn = el('sign'); show('sendErr', '');
+  const body = { ...PENDING_TRANSFER };
+  try {
+    if (STATE.kind === 'vault') {
+      const files = [...el('shares').files];
+      if (files.length < STATE.shares_required) throw new Error(`Choose at least ${STATE.shares_required} share files.`);
+      body.shares = await Promise.all(files.map(f => f.text()));
+    } else {
+      body.password = el('password').value;
+      if (!body.password) throw new Error('Enter your wallet password.');
+    }
+    btn.disabled = true; btn.textContent = 'Signing…';
+    const r = await api('/api/send', { method: 'POST', body: JSON.stringify(body) });
+    el('doneHash').textContent = r.tx_hash;
+    el('doneLink').href = explorer('#/tx/' + r.tx_hash);
+    el('reviewPane').hidden = true; el('donePane').hidden = false;
+    ['to', 'amount', 'memo'].forEach(id => el(id).value = ''); el('fee').value = '0';
+    el('to').dispatchEvent(new Event('input'));
+    PENDING_TRANSFER = null;
+    refresh();
+  } catch (e) {
+    show('sendErr', e.message);
+  } finally {
+    body.password = ''; body.shares = [];
+    el('password').value = '';
+    btn.disabled = false; btn.textContent = 'Sign & send';
+  }
+});
+
+el('again').addEventListener('click', () => { el('donePane').hidden = true; el('sendForm').hidden = false; });
+
+/* ── Receive ── */
+el('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(STATE.address); el('copyHint').textContent = 'Copied — all 5,184 characters.'; }
+  catch (_) {
+    const r = document.createRange(); r.selectNodeContents(el('addr'));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    el('copyHint').textContent = 'Selected — press Ctrl+C to copy.';
+  }
+});
+el('download').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([STATE.address + '\n'], { type: 'text/plain' }));
+  a.download = 'nev369-address.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* A token pasted into an already-open tab only changes the fragment —
+   reload so the session starts with it. */
+addEventListener('hashchange', () => { if (/t=[0-9a-f]{64}/.test(location.hash)) location.reload(); });
+
+/* ── Start ── */
+(async () => {
+  if (!TOKEN) {
+    el('app').hidden = true;
+    return fatal('Open the wallet with the link printed in your terminal by `godshield wallet open`.');
+  }
+  try { await loadState(); } catch (e) { el('app').hidden = true; return fatal(e.message); }
+  await refresh();
+  setInterval(refresh, 15000);
+})();
+</script>
+</body>
+</html>

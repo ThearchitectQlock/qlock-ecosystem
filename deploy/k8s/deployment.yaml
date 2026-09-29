@@ -1,0 +1,115 @@
+# GodShield API — verification, scanning and the PQ Security Gateway.
+#
+# Image: published by CI as ghcr.io/<owner>/godshield-api:<git sha>.
+# Deploy by SHA, not :latest — `latest` is not a version you can roll
+# back to.
+#
+# Secrets (optional — the gateway admin endpoints stay disabled without
+# them):
+#   kubectl -n godshield create secret generic godshield-api \
+#     --from-literal=GODSHIELD_ADMIN_TOKEN=$(openssl rand -hex 32) \
+#     --from-file=GODSHIELD_GATEWAY_KEY=gateway_keypair.json
+#
+# NOTE ON REPLICAS: the gateway's rate windows and audit chain live in
+# process memory, so each replica keeps its own. Verification and
+# scanning scale horizontally as-is; if you rely on the audit chain or
+# per-identity limits across replicas, run one replica or add shared
+# state first.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: godshield-api
+  namespace: godshield
+  labels:
+    app: godshield-api
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: godshield-api
+  template:
+    metadata:
+      labels:
+        app: godshield-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1002
+      containers:
+        - name: godshield-api
+          image: ghcr.io/OWNER/godshield-api:SHA
+          ports:
+            - containerPort: 8090
+          env:
+            - name: RUST_LOG
+              value: "info"
+            - name: GODSHIELD_PORT
+              value: "8090"
+            - name: GODSHIELD_ALLOWED_ORIGIN
+              value: "https://q-lock-ecosystem.com"
+          envFrom:
+            - secretRef:
+                name: godshield-api
+                optional: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: godshield-api
+  namespace: godshield
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8090
+  selector:
+    app: godshield-api
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: godshield-api-hpa
+  namespace: godshield
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: godshield-api
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

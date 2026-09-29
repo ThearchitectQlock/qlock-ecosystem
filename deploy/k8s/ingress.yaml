@@ -1,0 +1,27 @@
+# Change the host to the domain you serve the API on.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: godshield-ingress
+  namespace: godshield
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.godshield.xyz
+      secretName: godshield-tls
+  rules:
+    - host: api.godshield.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: godshield-api
+                port:
+                  number: 80

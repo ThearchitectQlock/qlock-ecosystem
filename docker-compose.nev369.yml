@@ -1,0 +1,150 @@
+# ═══════════════════════════════════════════════════════════════════════
+# NEV369 — three-node consensus cluster
+#
+#   docker compose -f docker-compose.nev369.yml up -d --build
+#
+# Node 1 mines; nodes 2 and 3 validate and relay. Bootstrap addresses are
+# explicit, so the same layout works across hosts by swapping the DNS
+# names for real addresses.
+#
+# This file exercises consensus — fork choice, reorg, sync, partition
+# recovery — separately from the main stack. Host ports (8181–8183,
+# 4101–4103) do not collide with docker-compose.yml, so both can run.
+#
+# Proof-of-work security comes from total honest hashrate, not node
+# count. For a public network these nodes belong on separate machines,
+# in separate places, run by separate people.
+# ═══════════════════════════════════════════════════════════════════════
+
+name: nev369-cluster
+
+x-nev369: &nev369-base
+  image: nev369-node:local
+  restart: unless-stopped
+  networks: [nev369-net]
+
+x-nev369-env: &nev369-env
+  RUST_LOG: ${RUST_LOG:-info,nev369_node=debug}
+  NEV369_ENV: ${NEV369_ENV:-development}
+  NEV369_BIND_ADDR: 0.0.0.0
+  NEV369_BIND_PORT: "8080"
+  NEV369_P2P_PORT: "4001"
+  NEV369_DB_PATH: /home/nev369/data/chain.db
+  NEV369_ALLOWED_ORIGINS: ${NEV369_ALLOWED_ORIGINS:-http://localhost,http://localhost:3000}
+  # Every node MUST agree on these or they are on different chains and
+  # will refuse to sync from each other.
+  NEV369_ARCHITECT_ADDRESS: ${NEV369_ARCHITECT_ADDRESS:-}
+  NEV369_NEVAEH_VAULT_ADDRESS: ${NEV369_NEVAEH_VAULT_ADDRESS:-}
+  NEV369_GENESIS_TIMESTAMP: ${NEV369_GENESIS_TIMESTAMP:-}
+  NEV369_GENESIS_HASH: ${NEV369_GENESIS_HASH:-}
+
+services:
+
+  # ── Node 1 — miner and bootstrap peer ───────────────────────────────
+  nev369-node1:
+    <<: *nev369-base
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nev369
+    container_name: nev369-node1
+    hostname: nev369-node1
+    ports:
+      - "8181:8080"
+      - "4101:4001"
+    environment:
+      <<: *nev369-env
+      NEV369_MINING: "1"
+      # Any hex public key works for a test cluster; generate one with
+      # POST /wallet/new on a development node.
+      NEV369_MINER_ADDRESS: ${NEV369_MINER_ADDRESS:-cluster-test-miner}
+    volumes:
+      - node1-data:/home/nev369/data
+
+  # ── Node 2 — validator ──────────────────────────────────────────────
+  nev369-node2:
+    <<: *nev369-base
+    container_name: nev369-node2
+    hostname: nev369-node2
+    ports:
+      - "8182:8080"
+      - "4102:4001"
+    environment:
+      <<: *nev369-env
+      NEV369_MINING: ${NODE2_MINING:-0}
+      NEV369_MINER_ADDRESS: ${NODE2_MINER_ADDRESS:-cluster-test-miner-2}
+      NEV369_BOOTSTRAP_PEERS: /dns4/nev369-node1/tcp/4001
+    volumes:
+      - node2-data:/home/nev369/data
+    depends_on:
+      nev369-node1:
+        condition: service_healthy
+
+  # ── Node 3 — validator ──────────────────────────────────────────────
+  nev369-node3:
+    <<: *nev369-base
+    container_name: nev369-node3
+    hostname: nev369-node3
+    ports:
+      - "8183:8080"
+      - "4103:4001"
+    environment:
+      <<: *nev369-env
+      NEV369_MINING: "0"
+      NEV369_BOOTSTRAP_PEERS: /dns4/nev369-node1/tcp/4001,/dns4/nev369-node2/tcp/4001
+    volumes:
+      - node3-data:/home/nev369/data
+    depends_on:
+      nev369-node1:
+        condition: service_healthy
+
+networks:
+  nev369-net:
+    driver: bridge
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
+
+# ═══════════════════════════════════════════════════════════════════════
+# VERIFYING CONSENSUS
+#
+# 1. All three converge on the same tip:
+#
+#      for p in 8181 8182 8183; do
+#        curl -s localhost:$p/info | jq "{port: $p, height, latest_hash}"
+#      done
+#
+#    Heights may differ by a block or two while propagating. The hashes at
+#    equal height must match.
+#
+# 2. A fresh node syncs history from scratch:
+#
+#      docker compose -f docker-compose.nev369.yml stop nev369-node3
+#      docker compose -f docker-compose.nev369.yml rm -f nev369-node3
+#      docker volume rm nev369-cluster_node3-data
+#      docker compose -f docker-compose.nev369.yml up -d nev369-node3
+#      docker logs -f nev369-node3
+#
+#    Node 3 starts from genesis and catches up to node 1's height. Gossip
+#    alone does not carry history — this is the locator sync at work.
+#
+# 3. Reorg handling — run a second miner and watch for divergence:
+#
+#      NODE2_MINING=1 docker compose -f docker-compose.nev369.yml \
+#        up -d --no-deps --force-recreate nev369-node2
+#      docker logs -f nev369-node3 | grep -i reorg
+#
+#    Two miners occasionally find the same height at once. You will see
+#    "REORGANISATION" in the logs and all three settle on the same tip —
+#    the one with more accumulated work. `curl localhost:8183/metrics`
+#    shows nev369_reorgs_total rising.
+#
+# 4. Partition recovery:
+#
+#      docker network disconnect nev369-cluster_nev369-net nev369-node3
+#      # wait a few minutes while node 1 keeps mining
+#      docker network connect nev369-cluster_nev369-net nev369-node3
+#
+#    Node 3 detects the heavier chain and reorganises onto it.
+# ═══════════════════════════════════════════════════════════════════════

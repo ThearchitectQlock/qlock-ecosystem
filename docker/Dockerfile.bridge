@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1.7
+# ═══════════════════════════════════════════════════════════════════════
+# NEV369 bridge — coordinator (nev369-relayer) and submitter
+#
+# One image, two binaries. The coordinator is the default entrypoint; the
+# submitter runs from the same image with `entrypoint: nev369-submitter`.
+#
+# Neither holds a mint-authorizing key. The coordinator holds none at all;
+# the submitter holds a gas-only Ethereum key and refuses to start if that
+# key is one of the bridge signers. Signers run on their own machines.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Builder ────────────────────────────────────────────────────────────
+FROM rust:1.88.0-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev ca-certificates clang \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Workspace manifests first. Cargo.lock is committed and copied so the
+# image builds the exact dependency graph that was tested — a consensus
+# binary resolving a different patch version of a signature crate than
+# the one under test is a fork waiting to happen.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+
+# Every workspace member, because the workspace will not resolve with a
+# declared member missing.
+COPY crates ./crates
+
+# BuildKit cache mounts keep the registry and target dir out of the image
+# layers entirely. The binary has to be copied out of the cache mount
+# before it goes away — a plain `cargo build` here would leave nothing
+# behind for the runtime stage to find.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --locked --bin nev369-relayer --bin nev369-submitter \
+ && cp /app/target/release/nev369-relayer /usr/local/bin/nev369-relayer && cp /app/target/release/nev369-submitter /usr/local/bin/nev369-submitter
+
+# ── Runtime ────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl3 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1002 -s /usr/sbin/nologin bridge \
+    && mkdir -p /home/bridge/data && chown bridge:bridge /home/bridge/data
+
+COPY --from=builder /usr/local/bin/nev369-relayer /usr/local/bin/nev369-relayer
+COPY --from=builder /usr/local/bin/nev369-submitter /usr/local/bin/nev369-submitter
+
+USER bridge
+WORKDIR /home/bridge
+VOLUME ["/home/bridge/data"]
+ENV RUST_LOG=info RELAYER_STORE=/home/bridge/data/relayer.json
+
+EXPOSE 9370
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:9370/health || exit 1
+
+ENTRYPOINT ["nev369-relayer"]

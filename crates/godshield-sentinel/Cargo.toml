@@ -1,0 +1,14 @@
+[package]
+name = "godshield-sentinel"
+description = "Continuous monitoring, correlation, graduated response and tamper-evident incident evidence."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+godshield-core = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

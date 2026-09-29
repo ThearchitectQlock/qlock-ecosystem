@@ -1,0 +1,17 @@
+[package]
+name = "godshield-gateway"
+description = "PQ Security Gateway — policy enforcement, key rotation with history, and a tamper-evident audit chain."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+godshield-core = { workspace = true }
+godshield-identity = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

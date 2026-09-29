@@ -1,0 +1,32 @@
+[package]
+name = "nev369-node"
+description = "NEV369 — post-quantum Layer-1 node. Secured by GodShield. Dedicated to Nevaeh."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "nev369-node"
+path = "src/main.rs"
+
+[dependencies]
+godshield-core = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+actix-governor = { workspace = true }
+libp2p = { workspace = true }
+sled = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+uuid = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-actix-web = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Docker build context
+#
+# Two jobs. The obvious one is speed: `target/` and `node_modules/` are
+# gigabytes and neither is needed by a Rust build.
+#
+# The one that matters is that vault shares and .env must never enter a
+# build context. Anything in the context can end up in an image layer,
+# and image layers get pushed to a registry. A `COPY . .` with a share
+# file present publishes key material to GHCR.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Never in an image ──────────────────────────────────────────────────
+*_shares/
+*_share_*.json
+share_*.json
+*_vault.json
+# Password-sealed wallets and the escrow's plaintext signing identity.
+nev369_wallet*.json
+qlock_attestation.json
+keys.json
+*.key
+*.pem
+*.seed
+.env
+.env.*
+!.env.example
+secrets/
+
+# ── Build artefacts ────────────────────────────────────────────────────
+target/
+**/target/
+node_modules/
+**/node_modules/
+dist/
+build/
+
+# ── Not needed by a Rust build ─────────────────────────────────────────
+apps/
+docs/
+monitoring/
+nginx/
+db/*.md
+.github/
+*.md
+!README.md
+deploy.sh
+deploy/
+Makefile
+
+# ── VCS and tooling ────────────────────────────────────────────────────
+.git/
+.gitignore
+.dockerignore
+.vscode/
+.idea/
+
+# ── Local data ─────────────────────────────────────────────────────────
+chain.db/
+*.sled
+data/
+pgdata/
+tmp/
+scratch/
+*.log
+.DS_Store
+
+.backup-*/
+godshield_gateway.json

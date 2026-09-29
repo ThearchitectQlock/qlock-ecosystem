@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Alert rules — Q-Lock ecosystem
+#
+# Loaded by prometheus.yml (rule_files). Wire an Alertmanager to route
+# these to a phone; without one they show on the Prometheus /alerts page.
+# ═══════════════════════════════════════════════════════════════════════
+
+groups:
+  - name: nev369
+    rules:
+      - alert: NEV369NodeDown
+        expr: up{job="nev369"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "NEV369 {{ $labels.node }} is not answering /metrics"
+
+      - alert: NEV369DeepReorg
+        expr: nev369_deepest_reorg_blocks > 2
+        labels: { severity: critical }
+        annotations:
+          summary: "Reorg deeper than 2 blocks on {{ $labels.node }}"
+          description: >
+            A reorganisation disconnected {{ $value }} blocks. At this depth
+            either fork choice is misbehaving or someone is out-mining the
+            honest chain. Pause the bridge until it is understood.
+
+      - alert: NEV369ChainStalled
+        expr: nev369_tip_age_seconds > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "No new block on {{ $labels.node }} for 15 minutes (target 60s)"
+
+      - alert: NEV369NodesDisagree
+        expr: max(nev369_height) - min(nev369_height) > 3
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "NEV369 nodes are more than 3 blocks apart and not converging"
+
+      - alert: NEV369MempoolFull
+        expr: nev369_mempool_size / nev369_mempool_capacity > 0.9
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Mempool above 90% on {{ $labels.node }}"
+
+  - name: escrow
+    rules:
+      - alert: EscrowDown
+        expr: up{job="qlock-escrow"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "qlock-escrow is not answering /metrics"

@@ -1,0 +1,36 @@
+[package]
+name = "godshield-cli"
+description = "GodShield command-line interface: NEV369 wallets, send, keygen, sign, verify, scan, vault ceremony."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The binary is `godshield`; the directory is godshield-cli. The
+# workspace member path must match the DIRECTORY, not the binary name.
+[[bin]]
+name = "godshield"
+path = "src/main.rs"
+
+[dependencies]
+godshield-core = { workspace = true }
+godshield-adapters = { workspace = true }
+godshield-scanner = { workspace = true }
+# src/vault.rs dispatches into this.
+nevaeh-vault = { workspace = true }
+clap = { workspace = true }
+colored = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+rpassword = { workspace = true }
+chrono = { workspace = true }
+# `godshield send` talks to a NEV369 node.
+reqwest = { workspace = true, features = ["blocking"] }
+# Wallet files: Argon2id key derivation + AES-256-GCM, secrets zeroed.
+argon2 = { workspace = true }
+aes-gcm = { workspace = true }
+rand = { workspace = true }
+zeroize = { workspace = true }

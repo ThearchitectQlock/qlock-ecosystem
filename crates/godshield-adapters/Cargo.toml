@@ -1,0 +1,20 @@
+[package]
+name = "godshield-adapters"
+description = "Chain adapters translating GodShield keys to Bitcoin, Ethereum, Solana and NEV369 address formats."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+godshield-core = { workspace = true }
+# Re-exports MigrationHelper so godshield-cli compiles unchanged.
+# Delete the inline scanner block from src/lib.rs when wiring this.
+godshield-scanner = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+bs58 = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }

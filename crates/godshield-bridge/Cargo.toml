@@ -1,0 +1,17 @@
+[package]
+name = "godshield-bridge"
+description = "Threshold-authorized bridge security: finality, replay, exposure limits and circuit breakers. Replaces single-relayer trust."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+godshield-core = { workspace = true }
+serde = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]

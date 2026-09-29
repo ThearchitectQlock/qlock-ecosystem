@@ -1,0 +1,265 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Q-Lock — workspace root
+#
+# RECONCILED against the v1.1.0 manifest. Kept from that version: the
+# member list, version 1.1.0, internal crates carrying `version` beside
+# `path` (needed for any future publish), and the `panic = "abort"`
+# rationale — which is correct and independently arrived at.
+#
+# ── ONE MEMBER ADDED: godshield-scanner ───────────────────────────────
+#
+# Both README variants list `crates/godshield-scanner/` in the repository
+# layout. The v1.1.0 member list does not include it, and the scanner
+# code actually lives inside godshield-adapters as `MigrationHelper`.
+#
+# So the crate the docs advertise does not exist — `cargo build -p
+# godshield-scanner` fails — and the code that does exist sits in a
+# chain-adapter crate, meaning anyone scanning a third-party codebase for
+# vulnerable crypto pulls in Bitcoin, Ethereum and Solana transaction
+# encoders to do it.
+#
+# The scanner is now its own member. godshield-adapters re-exports from
+# it, so godshield-cli's existing
+# `use godshield_adapters::{AdapterRegistry, MigrationHelper}` compiles
+# unchanged — add this to adapters/src/lib.rs and delete the inline
+# VULNERABILITY SCANNER block:
+#
+#     pub use godshield_scanner::{MigrationHelper, VulnerabilityReport};
+#
+# ── VERSIONS RESOLVED WHERE THE TWO DRAFTS DISAGREED ──────────────────
+#
+#   tower_governor  0.4 kept (0.3 in the other draft)
+#   sentry          0.34 kept (0.32)
+#   sha2            kept — qlock-escrow needs it for Stripe webhook HMAC
+#   async-stripe    dropped: billing.rs calls the Stripe REST API directly
+#                   and verifies webhooks with HMAC-SHA256 (0.37 failed to
+#                   compile with only the webhook-events feature)
+#   argon2 / bcrypt both were declared; see the note at bcrypt
+# ═══════════════════════════════════════════════════════════════════════
+
+[workspace]
+# Resolver 3 is MSRV-aware: when Cargo.lock is first generated it prefers
+# dependency versions whose rust-version fits ours, instead of the newest
+# release that may need a compiler we have not pinned.
+resolver = "3"
+members = [
+    # ── GodShield: the cryptographic foundation ──
+    "crates/godshield-core",
+    "crates/godshield-adapters",
+    "crates/godshield-scanner",
+    "crates/godshield-bridge",
+    "crates/godshield-identity",
+    "crates/godshield-gateway",
+    "crates/godshield-sentinel",
+    "crates/godshield-api",
+    "crates/godshield-cli",
+    "crates/godshield-fairness",
+    "crates/godshield-wasm",
+
+    # ── Inheritance vault ──
+    "crates/nevaeh-vault",
+
+    # ── Products built on the core ──
+    "crates/qlock-escrow",
+    "crates/nev369-node",
+    "crates/nev369-relayer",
+    "crates/nev369-submitter",
+]
+
+# apps/ are JS/TS and are not Cargo members. contracts/ is Foundry.
+exclude = ["apps", "contracts"]
+
+[workspace.package]
+version = "1.1.0"
+edition = "2021"
+rust-version = "1.88"
+authors = ["The Architect <founders@q-lock-ecosystem.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ThearchitectQlock/qlock-ecosystem"
+homepage = "https://q-lock-ecosystem.com"
+description = "Q-Lock — post-quantum settlement infrastructure"
+
+[workspace.dependencies]
+# ── Internal crates ──
+godshield-core = { path = "crates/godshield-core", version = "1.1.0" }
+godshield-adapters = { path = "crates/godshield-adapters", version = "1.1.0" }
+godshield-scanner = { path = "crates/godshield-scanner", version = "1.1.0" }
+godshield-bridge = { path = "crates/godshield-bridge", version = "1.1.0" }
+godshield-identity = { path = "crates/godshield-identity", version = "1.1.0" }
+godshield-gateway = { path = "crates/godshield-gateway", version = "1.1.0" }
+godshield-sentinel = { path = "crates/godshield-sentinel", version = "1.1.0" }
+godshield-fairness = { path = "crates/godshield-fairness", version = "1.1.0" }
+nevaeh-vault = { path = "crates/nevaeh-vault", version = "1.1.0" }
+
+# ── Post-quantum cryptography ──
+#
+# Pinned exactly, unlike the rest of the tree. A minor bump in a
+# signature implementation is a CONSENSUS EVENT for NEV369: if node A and
+# node B disagree about whether a signature is valid they fork, and
+# neither is wrong. Bump deliberately, with a live two-node run, never as
+# part of a routine `cargo update`.
+pqcrypto-dilithium = "=0.5.0"
+pqcrypto-traits = "=0.3.5"
+
+# ── Hashing ──
+sha3 = "0.10"
+blake3 = "1.5"
+sha2 = "0.10" # qlock-escrow: Stripe webhook HMAC
+hmac = "0.12" # ditto — HMAC-SHA256 over the raw webhook body
+
+# ── Constant-time comparison (signature verification) ──
+subtle = "2.5"
+
+# ── Secret sharing + key encryption (nevaeh-vault, cli) ──
+#
+# sharks pinned exactly. docs/nevaeh-vault-ceremony.md transcribes its
+# wire format in plain English for 2039 recovery: "first byte is the
+# x-coordinate, remaining bytes are y-coordinates, GF(256)". If the crate
+# changes that encoding, the published specification becomes wrong and a
+# thirteen-year recovery path breaks silently. Do not bump without
+# updating the document in the same commit.
+sharks = "=0.5.0"
+argon2 = "0.5"
+aes-gcm = "0.10"
+zeroize = { version = "1.7", features = ["derive"] }
+rpassword = "7.0"
+
+# ── Serialization ──
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+bs58 = "0.5"
+base64 = "0.22"
+
+# ── Errors ──
+thiserror = "1.0"
+anyhow = "1.0"
+
+# ── Async ──
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# ── Web: Q-Lock + GodShield API use axum; NEV369 uses actix ──
+#
+# Two HTTP frameworks is not debt to clean up later. nev369-node is
+# actix + libp2p; qlock-escrow is axum + sqlx. They share no HTTP
+# surface, so unifying them is churn with no behavioural change.
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower_governor = "0.4"
+# Named directly only for tower_governor 0.4's middleware type in
+# qlock-escrow/src/ratelimit.rs; must match the version it depends on.
+governor = "0.6"
+actix-web = "4"
+actix-cors = "0.7"
+actix-governor = "0.5"
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+
+# ── P2P (NEV369) ──
+# No "quic": the swarm is TCP + noise + yamux only (p2p.rs), and the QUIC
+# transport dragged in ring 0.16 and rcgen, which have open advisories.
+libp2p = { version = "0.53", features = [
+    "tokio", "gossipsub", "mdns", "noise", "yamux",
+    "tcp", "identify", "ping", "macros",
+    "request-response", "cbor",
+] }
+
+# ── Persistence ──
+sled = "0.34"
+sqlx = { version = "0.7", default-features = false, features = [
+    "runtime-tokio-rustls", "postgres", "chrono", "uuid",
+    "json", "bigdecimal", "macros", "migrate",
+] }
+
+# ── CLI ──
+clap = { version = "4", features = ["derive", "color"] }
+colored = "2.0"
+
+# ── Utilities ──
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+rand_chacha = "0.3"
+dotenvy = "0.15"
+
+# ── Auth / billing (Q-Lock) ──
+jsonwebtoken = "9"
+
+# NOTE: bcrypt and argon2 are BOTH declared, and only one should be.
+# Two password hashers in one workspace means two verification paths, and
+# the failure mode is a user registered under one and verified against
+# the other — a permanent lockout that presents as a wrong password.
+# Argon2id is the current OWASP recommendation and nevaeh-vault already
+# needs it for key derivation, so bcrypt is the one to drop. Left
+# declared only so removing it is a deliberate commit carrying a
+# migration for any existing bcrypt hashes in the users table, rather
+# than a silent deletion that breaks logins.
+bcrypt = "0.15"
+
+# ── Observability ──
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter", "json"] }
+tracing-actix-web = "0.7"
+sentry = "0.34"
+sentry-tracing = "0.34"
+
+# ── Testing ──
+proptest = "1.0"
+
+# ═══════════════════════════════════════════════════════════════════════
+# PROFILES
+# ═══════════════════════════════════════════════════════════════════════
+
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"
+
+# Dilithium5 keygen and signing are unusably slow unoptimised — a single
+# `cargo test` across the signature paths takes minutes in debug, which
+# is how a test suite stops being run. Optimise only the crypto deps.
+[profile.dev.package.pqcrypto-dilithium]
+opt-level = 3
+
+[profile.dev.package.blake3]
+opt-level = 3
+
+[profile.dev.package.sha3]
+opt-level = 3
+
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.godshield-core]
+opt-level = 3
+
+[profile.dev.package.hex]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+
+# NOTE: `panic = "abort"` is deliberately NOT set. Several crates use
+# Mutex/RwLock; with abort, a single poisoned lock takes down the whole
+# process instead of surfacing as a recoverable error.
+#
+# Second reason, specific to nev369-node: the task most likely to panic
+# is a libp2p handler parsing gossip from an untrusted peer. Under abort,
+# one hostile peer sending one malformed frame is a remote node kill with
+# no code execution required. Unwinding keeps the node producing blocks.
+
+[profile.bench]
+inherits = "release"
+
+# sha3's permutation lives in keccak - must be optimised too
+[profile.dev.package.keccak]
+opt-level = 3
+
+[profile.dev.package.digest]
+opt-level = 3
+
+[profile.dev.package.block-buffer]
+opt-level = 3

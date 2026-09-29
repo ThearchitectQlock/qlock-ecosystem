@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1.7
+# ═══════════════════════════════════════════════════════════════════════
+# GodShield API — verification, scanning, PQ Security Gateway
+#
+# Serves /api/v1/* — signature verification, address encoding, the
+# migration scanner, and the gateway (verify, policy check, identity
+# registry, key rotation, attestation, audit chain). Never accepts a
+# customer's secret key.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Builder ────────────────────────────────────────────────────────────
+FROM rust:1.88.0-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev ca-certificates clang \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Workspace manifests first. Cargo.lock is committed and copied so the
+# image builds the exact dependency graph that was tested — a consensus
+# binary resolving a different patch version of a signature crate than
+# the one under test is a fork waiting to happen.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+
+# Every workspace member, because the workspace will not resolve with a
+# declared member missing.
+COPY crates ./crates
+
+# BuildKit cache mounts keep the registry and target dir out of the image
+# layers entirely. The binary has to be copied out of the cache mount
+# before it goes away — a plain `cargo build` here would leave nothing
+# behind for the runtime stage to find.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --locked --bin godshield-api \
+ && cp /app/target/release/godshield-api /usr/local/bin/godshield-api
+
+# ── Runtime ────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl3 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1002 -s /usr/sbin/nologin godshield
+
+COPY --from=builder /usr/local/bin/godshield-api /usr/local/bin/godshield-api
+
+USER godshield
+WORKDIR /home/godshield
+ENV RUST_LOG=info GODSHIELD_PORT=8090
+
+EXPOSE 8090
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:8090/health || exit 1
+
+ENTRYPOINT ["godshield-api"]

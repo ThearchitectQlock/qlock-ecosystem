@@ -1,0 +1,148 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Q-Lock
+#
+# The vault section is the important part of this file. Everything else
+# is routine.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── VAULT AND KEY MATERIAL ─────────────────────────────────────────────
+#
+# One committed share file is a permanent leak. Git history is forever,
+# and this repository may go public. Three shares reconstruct a key that
+# controls a child's inheritance.
+#
+# CI enforces this too (scripts in .github/workflows/ci.yml), because a
+# .gitignore only stops accidents — it does nothing about `git add -f`.
+
+*_shares/
+*_share_*.json
+share_*.json
+*_vault.json
+nevaeh_xrpl_vault.json
+nevaeh_nev369_vault.json
+architect_vault.json
+# Password-sealed wallets and the escrow's plaintext signing identity.
+nev369_wallet*.json
+qlock_attestation.json
+keys.json
+*.key
+*.pem
+*.seed
+
+# ── Secrets ────────────────────────────────────────────────────────────
+
+.env
+.env.*
+!.env.example
+secrets/
+
+# ── Rust ───────────────────────────────────────────────────────────────
+
+/target
+**/target/
+*.pdb
+
+# Cargo.lock IS committed. This is a workspace of binaries, not a
+# published library, and the whole point is that the image CI builds
+# resolves the same dependency graph that was tested. For a consensus
+# binary that is not a preference — two nodes on different patch
+# versions of a signature crate can disagree about validity and fork.
+# Do not add Cargo.lock here.
+
+# ── Node ───────────────────────────────────────────────────────────────
+
+node_modules/
+dist/
+build/
+.next/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# ── Foundry ────────────────────────────────────────────────────────────
+# lib/ is installed by `forge install` (OpenZeppelin v5.0.2, forge-std).
+# broadcast/ holds deployment receipts; keep your own copy, but they carry
+# RPC URLs and deployer addresses you may not want public.
+
+contracts/out/
+contracts/cache/
+contracts/lib/
+contracts/broadcast/
+
+# ── WASM build output ──────────────────────────────────────────────────
+
+crates/godshield-wasm/pkg/
+
+# ── Inheritance ceremony output ────────────────────────────────────────
+#
+# inheritance_record.json holds the OfferSequence — the one value without
+# which the escrow can never be finished — plus the beneficiary's name and
+# date of birth. Back it up in several places. None of them should be a
+# public git repository.
+
+inheritance_record*.json
+
+# ── Chain and database data ────────────────────────────────────────────
+
+chain.db/
+*.sled
+data/
+pgdata/
+
+# ── TLS ────────────────────────────────────────────────────────────────
+
+nginx/certs/
+!nginx/certs/.gitkeep
+
+# ── Editors and OS ─────────────────────────────────────────────────────
+
+.vscode/
+!.vscode/settings.json
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ── Local scratch ──────────────────────────────────────────────────────
+
+*.local
+tmp/
+scratch/
+
+# Patch-script backups (contain a copy of .env)
+.backup-*/
+godshield_gateway.json
+
+# Built on the server by scripts/build-downloads.sh
+apps/downloads/
+
+# ── Added by github_push.sh ────────────────────────────────────────────
+# Anything wallet- or key-shaped, anywhere in the tree.
+*wallet*.json
+*_attestation*.json
+*gateway*.json
+*.keystore
+id_rsa*
+id_ed25519*
+# Chain databases, logs, archives, one-off update scripts.
+*.db
+*.sqlite*
+*.log
+*.zip
+*.tar.gz
+nginx/certbot/
+/*_patch.sh
+/qlock_*update*.sh
+/qlock_server_mining.sh
+/github_push.sh
+.env.bak*
+
+# Keypairs saved under any name or extension (qlock_attestation.js was
+# committed once because only the .json name was listed).
+*attestation*.json
+*attestation*.js
+*keypair*.json
+*keypair*.js
+test_wallet*

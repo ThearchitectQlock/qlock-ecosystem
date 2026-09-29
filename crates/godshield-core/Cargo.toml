@@ -1,0 +1,22 @@
+[package]
+name = "godshield-core"
+description = "ML-DSA-87 (Dilithium5) signing, TripleHash cascade, and canonical domain-separated encoding."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pqcrypto-dilithium = { workspace = true }
+pqcrypto-traits = { workspace = true }
+sha3 = { workspace = true }
+blake3 = { workspace = true }
+# Constant-time comparison. Used in verify() so a mismatching
+# message_hash cannot be distinguished by timing.
+subtle = { workspace = true }
+zeroize = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }

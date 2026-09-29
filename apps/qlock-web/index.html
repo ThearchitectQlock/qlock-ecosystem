@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q-Lock Ecosystem</title>
+<meta name="color-scheme" content="dark">
+
+<!--
+  apps/qlock-web/index.html  —  rebuilt
+
+  WHY THIS LOOKS DIFFERENT FROM THE PREVIOUS VERSION
+  That one used a pale ruled-ledger aesthetic. Defensible as a register
+  metaphor, and it read as a spreadsheet — flat, clinical, no presence.
+  This commits to a dark console, which is the right register for
+  infrastructure people operate rather than read.
+
+  DIRECTION
+  Deep indigo rather than neutral black, and gold rather than the cyan or
+  acid-green every crypto dashboard reaches for. Gold carries value and
+  sovereignty, which is what this system is about, and it is warm — the
+  dedication needs somewhere warm to sit.
+
+  Violet keeps the single meaning it has everywhere in this codebase:
+  TIME-LOCKED. Never used for emphasis.
+
+  The lattice behind the dedication is not ornament. Dilithium is
+  lattice-based cryptography; it is the substrate the whole system rests
+  on, and it belongs behind the one thing that has to outlive everything
+  else.
+
+  THE DEDICATION IS THE ANCHOR
+  It is written into genesis block 0 and stays there as long as the chain
+  runs. So it gets the Overview panel, set in a serif at a size that
+  expects to be read, with the real block hash fetched from the node
+  beneath it — proof it is on-chain rather than website copy.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#080A13;
+  --surface:#11152447;
+  --line:#232942;
+  --line-soft:#1A1F33;
+
+  --text:#E9EBF4;
+  --text-dim:#9AA2BC;
+  --text-faint:#646C88;
+
+  --gold:#E3B657;
+  --gold-dim:#8A6E2E;
+  --gold-glow:#E3B65722;
+
+  --violet:#9B7FE0;      /* TIME-LOCKED — this meaning only */
+  --mint:#4FD69C;
+  --rose:#F0736B;
+  --amber:#E09B4A;
+
+  --r:10px;
+  --gap:clamp(1rem,2.2vw,1.6rem);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:400 15px/1.6 "Sora",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, #1B2142 0%, transparent 60%),
+    radial-gradient(700px 400px at 88% 0%, #191533 0%, transparent 55%);
+  background-attachment:fixed;
+}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+h1,h2{margin:0;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+h1{font-size:1.35rem}
+h2{font-size:1.05rem}
+p{margin:0 0 .8em}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+
+/* ── Shell ── */
+.app{display:grid;min-height:100vh;grid-template-columns:1fr}
+@media(min-width:900px){.app{grid-template-columns:248px 1fr}}
+
+.rail{
+  background:linear-gradient(180deg,#0C0F1CEE,#090B14EE);
+  border-right:1px solid var(--line-soft);
+  padding:1.4rem 1rem;display:flex;flex-direction:column;gap:1.4rem;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+@media(max-width:899px){.rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line-soft)}}
+
+.brand{display:flex;align-items:center;gap:.65rem;padding:0 .35rem}
+.mark{width:34px;height:34px;border-radius:9px;flex:0 0 34px;
+  background:linear-gradient(140deg,var(--gold),#A97C24);display:grid;place-items:center;
+  box-shadow:0 0 0 1px #E3B65733,0 6px 20px -6px #E3B65766}
+.mark svg{width:19px;height:19px;display:block}
+.brand .name{font-weight:700;letter-spacing:-.03em;font-size:1.02rem}
+.brand .sub{font-size:.68rem;color:var(--text-faint);letter-spacing:.09em;text-transform:uppercase}
+
+nav{display:flex;flex-direction:column;gap:.15rem}
+@media(max-width:899px){nav{flex-direction:row;overflow-x:auto;padding-bottom:.3rem}}
+nav button{display:flex;align-items:center;gap:.6rem;width:100%;background:none;border:0;
+  border-radius:8px;cursor:pointer;padding:.56rem .65rem;color:var(--text-dim);
+  font-size:.9rem;text-align:left;white-space:nowrap;transition:background .15s,color .15s}
+nav button:hover{background:#FFFFFF08;color:var(--text)}
+nav button[aria-selected="true"]{background:linear-gradient(90deg,var(--gold-glow),transparent);
+  color:var(--text);font-weight:500;box-shadow:inset 2px 0 0 var(--gold)}
+nav button .ic{width:15px;height:15px;flex:0 0 15px;opacity:.75}
+nav button[aria-selected="true"] .ic{opacity:1;color:var(--gold)}
+
+.rail-foot{margin-top:auto;padding:0 .35rem;font-size:.7rem;color:var(--text-faint);line-height:1.5}
+.rail-foot .lock{color:var(--violet)}
+
+main{padding:var(--gap);max-width:1120px;width:100%;min-width:0}
+.head{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:baseline;margin-bottom:1.3rem}
+.head h1{margin-right:auto}
+.head .note{color:var(--text-faint);font-size:.82rem}
+
+.btn{background:#FFFFFF0A;border:1px solid var(--line);color:var(--text);
+  padding:.5rem .95rem;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:500;
+  transition:border-color .15s,background .15s}
+.btn:hover{background:#FFFFFF14;border-color:#39406088}
+.btn.primary{background:linear-gradient(140deg,var(--gold),#B98C2C);border-color:transparent;
+  color:#1A1405;font-weight:600;box-shadow:0 4px 16px -6px #E3B65799}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ── Pulse ── */
+.pulse{display:grid;gap:.6rem;margin-bottom:1.4rem}
+@media(min-width:680px){.pulse{grid-template-columns:repeat(5,1fr)}}
+.node{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);
+  padding:.75rem .8rem;position:relative;overflow:hidden;backdrop-filter:blur(6px)}
+.node::after{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,#FFFFFF1A,transparent)}
+.node .k{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text-faint);
+  letter-spacing:.04em;text-transform:uppercase;margin-bottom:.35rem}
+.node .v{font:500 1.05rem/1.2 "JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.node .s{font-size:.7rem;color:var(--text-faint);margin-top:.15rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.led{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex:0 0 7px}
+.led.up{background:var(--mint);box-shadow:0 0 8px var(--mint)}
+.led.down{background:var(--rose);box-shadow:0 0 8px #F0736B88}
+.led.locked{background:var(--violet);box-shadow:0 0 8px #9B7FE088}
+
+/* ── Cards ── */
+.card{background:linear-gradient(180deg,#141829,#101426);border:1px solid var(--line-soft);
+  border-radius:14px;padding:1.15rem 1.2rem;margin-bottom:1rem;
+  box-shadow:0 1px 0 #FFFFFF08 inset,0 12px 32px -22px #000}
+.card .lede{color:var(--text-dim);font-size:.86rem;margin-bottom:1rem;max-width:64ch}
+.grid{display:grid;gap:1rem}
+@media(min-width:760px){.grid.two{grid-template-columns:1fr 1fr}}
+
+/* ── Dedication ── */
+.dedication{position:relative;border-radius:16px;padding:2rem 1.6rem 1.5rem;margin-bottom:1.1rem;
+  background:radial-gradient(700px 300px at 15% 0%,#241C3E 0%,transparent 70%),
+             linear-gradient(170deg,#161231,#0E1020);
+  border:1px solid #2A2350;overflow:hidden}
+.dedication::before{content:"";position:absolute;inset:0;opacity:.16;pointer-events:none;
+  background-image:linear-gradient(var(--violet) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--violet) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:radial-gradient(520px 260px at 80% 15%,#000 0%,transparent 72%);
+  -webkit-mask-image:radial-gradient(520px 260px at 80% 15%,#000 0%,transparent 72%)}
+.dedication>*{position:relative}
+.ded-tag{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);
+  margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.ded-tag::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,#E3B65744,transparent)}
+blockquote.ded{margin:0;padding-left:1.1rem;border-left:2px solid var(--gold);
+  font-family:"Instrument Serif",Georgia,serif;
+  font-size:clamp(1.18rem,2.5vw,1.62rem);line-height:1.5;color:#F2EDE2;max-width:46ch}
+blockquote.ded em{font-style:italic;color:var(--gold)}
+.ded-meta{margin-top:1.4rem;display:flex;flex-wrap:wrap;gap:.35rem 1.6rem;
+  font-size:.74rem;color:var(--text-faint)}
+.ded-meta b{display:block;color:var(--text-dim);font-weight:400;
+  font-family:"JetBrains Mono",monospace;font-size:.78rem;word-break:break-all}
+.ded-meta .lbl{letter-spacing:.07em;text-transform:uppercase;font-size:.63rem}
+
+/* ── Forms ── */
+label{display:block;font-size:.74rem;color:var(--text-faint);margin:.75rem 0 .3rem;
+  letter-spacing:.04em;text-transform:uppercase}
+input,textarea{width:100%;padding:.58rem .7rem;border:1px solid var(--line);border-radius:8px;
+  background:#0A0D18;color:var(--text);font:400 .88rem/1.4 "JetBrains Mono",monospace}
+input:focus,textarea:focus{border-color:var(--gold-dim);background:#0C0F1C}
+textarea{min-height:5.5rem;resize:vertical}
+select.sel{width:100%;padding:.58rem .7rem;border:1px solid var(--line);border-radius:8px;
+  background:#0A0D18;color:var(--text);font:400 .88rem/1.4 inherit}
+.row{display:flex;flex-wrap:wrap;gap:.7rem;align-items:flex-end}
+.row>div{flex:1 1 13rem}
+
+.out{margin-top:.9rem;padding:.75rem .85rem;border-radius:8px;background:#070912;
+  border:1px solid var(--line-soft);font:400 .79rem/1.55 "JetBrains Mono",monospace;
+  white-space:pre-wrap;word-break:break-word;max-height:19rem;overflow:auto;color:var(--text-dim)}
+.out:empty{display:none}
+.out.err{border-color:#5A2A2A;color:#FFB3AD;background:#160B0B}
+.out.ok{border-color:#245A42;color:#A8EFCE;background:#081611}
+
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-weight:500;color:var(--text-faint);font-size:.7rem;
+  letter-spacing:.06em;text-transform:uppercase;padding:.4rem .7rem .4rem 0;
+  border-bottom:1px solid var(--line)}
+td{padding:.55rem .7rem .55rem 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+
+.pill{display:inline-block;font-size:.68rem;padding:.16rem .5rem;border-radius:999px;
+  border:1px solid currentColor}
+.pill.locked{color:var(--violet)}
+.pill.warn{color:var(--amber)}
+.pill.bad{color:var(--rose)}
+.pill.good{color:var(--mint)}
+
+.notice{border-left:2px solid var(--amber);background:#17120A;border-radius:0 8px 8px 0;
+  padding:.75rem .95rem;margin:1rem 0;font-size:.84rem;color:var(--text-dim);max-width:70ch}
+.notice strong{color:var(--text);font-weight:600}
+
+/* ── Plans ── */
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.9rem;margin-top:1.2rem}
+.plan{border:1px solid var(--line);border-radius:12px;padding:1rem;background:#0A0D18;display:flex;
+  flex-direction:column;gap:.45rem}
+.plan.current{border-color:var(--gold)}
+.plan h3{margin:0;font-size:1rem}
+.plan .price{font:600 1.35rem/1.2 "Sora",sans-serif;color:var(--text)}
+.plan ul{margin:.2rem 0 .6rem;padding-left:1.1rem;color:var(--text-dim);font-size:.84rem;line-height:1.6}
+.plan .btn{margin-top:auto}
+.acct{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:.9rem;margin:.3rem 0 1rem}
+.acct .k{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.acct .v{font:600 1.05rem/1.4 "JetBrains Mono",monospace;color:var(--text)}
+.bar{height:6px;border-radius:99px;background:#FFFFFF10;margin-top:.4rem;overflow:hidden}
+.bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),#B98C2C)}
+
+/* ── Copyable commands ── */
+.cmd{display:flex;gap:.6rem;align-items:center;margin-top:.7rem;padding:.55rem .6rem .55rem .85rem;
+  border:1px solid var(--line);border-radius:10px;background:#070912}
+.cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;font:500 .84rem/1.5 "JetBrains Mono",monospace;
+  color:var(--gold)}
+.cmd .btn{flex:0 0 auto;padding:.32rem .7rem;font-size:.78rem}
+
+/* ── Xaman signing box ── */
+.xsign{display:flex;flex-wrap:wrap;gap:1rem 1.3rem;align-items:center;margin-top:1rem;
+  padding:1rem;border:1px solid var(--line);border-radius:12px;background:#0A0D18}
+.xsign img{width:168px;height:168px;border-radius:10px;background:#fff;padding:6px}
+.xsign .xs-body{flex:1 1 14rem;display:flex;flex-direction:column;gap:.6rem;align-items:flex-start}
+.xsign .xs-title{font-weight:600;color:var(--text)}
+.xsign .xs-wait{font-size:.8rem;color:var(--text-faint)}
+.xsign .xs-wait::before{content:"";display:inline-block;width:.5rem;height:.5rem;border-radius:50%;
+  background:var(--gold);margin-right:.45rem;animation:xpulse 1.2s ease-in-out infinite}
+@keyframes xpulse{50%{opacity:.25}}
+.xsign a.btn{text-decoration:none}
+.out a{color:var(--gold)}
+.acts{display:flex;gap:.4rem;flex-wrap:wrap}
+.acts .btn{padding:.3rem .65rem;font-size:.78rem}
+.net{font-size:.7rem;padding:.12rem .5rem;border-radius:999px;border:1px solid currentColor}
+.net.test{color:var(--amber)} .net.main{color:var(--mint)}
+
+footer{margin-top:2rem;padding-top:1.1rem;border-top:1px solid var(--line-soft);
+  color:var(--text-faint);font-size:.78rem;max-width:72ch}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="rail">
+  <div class="brand">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1A1405" stroke-width="2.1"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="10.5" width="16" height="10" rx="2"/>
+        <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+      </svg>
+    </div>
+    <div><div class="name">Q-Lock</div><div class="sub">Ecosystem</div></div>
+  </div>
+
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="overview">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Overview</button>
+    <button role="tab" aria-selected="false" data-tab="escrow">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>Escrow</button>
+    <button role="tab" aria-selected="false" data-tab="chain">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="M11 8h3a2 2 0 0 1 2 2v3"/></svg>NEV369</button>
+    <button role="tab" aria-selected="false" data-tab="bridge">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M6 12V8m12 4V8M9 12v5m6-5v5"/></svg>Bridge</button>
+    <button role="tab" aria-selected="false" data-tab="vault">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>Inheritance</button>
+    <button role="tab" aria-selected="false" data-tab="keys">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>GodShield</button>
+    <button role="tab" aria-selected="false" data-tab="config">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>Endpoints</button>
+  </nav>
+
+  <div class="rail-foot">
+    <span class="lock">◆</span> Nevaeh's vault unlocks<br>
+    <span class="mono" id="railCountdown">—</span><br>
+    <span style="opacity:.7">28 July 2039</span>
+  </div>
+</aside>
+
+<main>
+
+<section role="tabpanel" data-panel="overview">
+  <div class="head"><h1>Ecosystem</h1>
+    <span class="note">Live status</span></div>
+
+  <div class="pulse">
+    <div class="node" data-svc="escrow"><div class="k"><span class="led"></span>Escrow</div>
+      <div class="v" data-val>—</div><div class="s" data-sub>XRP Ledger</div></div>
+    <div class="node" data-svc="node1"><div class="k"><span class="led"></span>NEV369</div>
+      <div class="v" data-val>—</div><div class="s" data-sub>open network</div></div>
+    <div class="node" data-svc="godshield"><div class="k"><span class="led"></span>GodShield</div>
+      <div class="v" data-val>—</div><div class="s" data-sub>post-quantum API</div></div>
+    <div class="node" data-svc="relayer"><div class="k"><span class="led"></span>Bridge</div>
+      <div class="v" data-val>—</div><div class="s" data-sub>coordinator</div></div>
+    <div class="node" data-svc="vault"><div class="k"><span class="led locked"></span>Vault</div>
+      <div class="v" data-val>—</div><div class="s" data-sub>time-locked</div></div>
+  </div>
+
+  <div class="dedication">
+    <div class="ded-tag">Genesis · Block 0 · Immutable</div>
+    <blockquote class="ded">
+      Nevaeh, my daughter. To secure your freedom against a broken system, I taught
+      myself Rust — the hardest computer language in the world — to build this
+      unyielding sovereign node for you. I faced the worst of life's struggles so you
+      would never have to. <em>I love you infinitely, forever by your side.</em>
+    </blockquote>
+    <div class="ded-meta">
+      <div><span class="lbl">Genesis hash</span><b id="genesisHash">—</b></div>
+      <div><span class="lbl">Her allocation</span><b>36,900,000 NEV · 9.99%</b></div>
+      <div><span class="lbl">Unlocks</span><b>28 July 2039</b></div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Supply</h2>
+      <p class="lede">Every NEV either exists at genesis or gets mined. The cap is reachable.</p>
+      <table><tbody>
+        <tr><td>Cap</td><td class="num">369,369,369</td><td class="num">100%</td></tr>
+        <tr><td>Mineable</td><td class="num">322,469,369</td><td class="num">87.30%</td></tr>
+        <tr><td>Nevaeh <span class="pill locked">locked</span></td><td class="num">36,900,000</td><td class="num">9.99%</td></tr>
+        <tr><td>Architect</td><td class="num">10,000,000</td><td class="num">2.71%</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card">
+      <h2>Cryptography</h2>
+      <p class="lede">Post-quantum signing across every component.</p>
+      <table><tbody>
+        <tr><td>Signatures</td><td class="num">Dilithium5</td></tr>
+        <tr><td>Level</td><td class="num">NIST 5</td></tr>
+        <tr><td>Hash</td><td class="num">SHA3→BLAKE3→SHA3</td></tr>
+        <tr><td>Public key</td><td class="num">2,592 B</td></tr>
+        <tr><td>Signature</td><td class="num">~4.6 KB</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+</section>
+
+<section role="tabpanel" data-panel="escrow" hidden>
+  <div class="head"><h1>Q-Lock Escrow</h1>
+    <span class="note">Non-custodial · XRP Ledger <span class="net" id="xrplNet" hidden></span></span></div>
+  <div class="grid two">
+    <div class="card"><h2>1 · Your account</h2>
+      <p class="lede">Keeps track of the escrows you create. Your XRP never touches it.</p>
+      <label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username">
+      <label for="loginPass">Password</label><input id="loginPass" type="password" autocomplete="current-password">
+      <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
+        <button class="btn primary" id="btnLogin">Sign in</button>
+        <button class="btn" id="btnRegister">Create account</button>
+        <button class="btn" id="btnLogout" hidden>Sign out</button></div>
+      <div class="out" id="authOut"></div></div>
+    <div class="card"><h2>2 · Connect Xaman</h2>
+      <p class="lede">Sign in with your Xaman wallet to prove which XRPL address is yours.
+        Nothing is sent and nothing is spent.</p>
+      <button class="btn primary" id="btnXConnect">Connect Xaman</button>
+      <div class="xsign" id="xConnectSign" hidden></div>
+      <div class="out" id="xConnected"></div></div>
+  </div>
+  <div class="card">
+    <h2>3 · Create an escrow</h2>
+    <p class="lede">Two approvals in Xaman: first the Q-Lock fee, then the
+      <span class="mono">EscrowCreate</span> that locks your XRP on the ledger itself. The
+      recipient can release it straight away; if they don't, you can reclaim it once the
+      lock period has passed. Q-Lock never holds a key that can move your funds.</p>
+    <div class="grid two">
+      <div><label for="escFrom">From — your Xaman address</label>
+        <input id="escFrom" readonly placeholder="connect Xaman in step 2">
+        <label for="escTo">Recipient</label><input id="escTo" placeholder="r…" autocomplete="off"></div>
+      <div><label for="escAmount">Amount (XRP)</label><input id="escAmount" value="10" inputmode="decimal">
+        <label for="escHours">You can reclaim it after (hours)</label>
+        <input id="escHours" value="24" inputmode="decimal"></div>
+    </div>
+    <div class="out" id="escQuote"></div>
+    <button class="btn primary" id="btnEscrowCreate" style="margin-top:1rem">Create escrow</button>
+    <div class="xsign" id="escSign" hidden></div>
+    <div class="out" id="escrowOut"></div>
+  </div>
+  <div class="card"><h2>Your escrows</h2>
+    <div class="row"><div><label for="escListAddr">Address</label>
+      <input id="escListAddr" placeholder="r…"></div>
+      <button class="btn" id="btnEscrowList">Load</button></div>
+    <div id="escrowTable" style="margin-top:1rem"></div>
+    <div class="xsign" id="actSign" hidden></div>
+    <div class="out" id="escrowListOut"></div></div>
+</section>
+
+<section role="tabpanel" data-panel="chain" hidden>
+  <div class="head"><h1>NEV369</h1><span class="note">Post-quantum Layer-1</span></div>
+  <div class="card"><h2>Network</h2>
+    <p class="lede">NEV369 is an open network: anyone can run a node and mine. This is the live
+      view from the public node at q-lock-ecosystem.com — every block anyone mines reaches it.</p>
+    <div class="acct" id="netStats"></div>
+    <button class="btn" id="btnChainInfo">Refresh</button>
+    <div class="out" id="chainOut"></div></div>
+  <div class="card"><h2>Mine NEV369 — two commands</h2>
+    <p class="lede">Every block pays <strong>369 NEV</strong> to whoever mines it. Mining runs a
+      full node on your own computer: it downloads the chain, checks every block, and
+      searches for the next one. Open a terminal and paste:</p>
+    <div class="cmd"><code id="cmdInstall">curl -fsSL https://q-lock-ecosystem.com/downloads/install.sh | bash</code>
+      <button class="btn" data-copy="cmdInstall">Copy</button></div>
+    <div class="cmd"><code id="cmdMine">nev369-mine</code>
+      <button class="btn" data-copy="cmdMine">Copy</button></div>
+    <p class="lede" style="margin-top:.9rem">The first run creates your wallet — choose a password,
+      at least 10 characters. <strong>There is no recovery</strong>: back up
+      <span class="mono">~/.nev369/wallet.json</span> and remember the password. Leave the
+      terminal open while it mines; Ctrl+C stops it and it resumes where it left off.</p>
+    <div class="notice">Runs on <strong>64-bit Linux</strong>: a Linux PC or server, a
+      Chromebook's Linux terminal, or <strong>Windows</strong> through WSL
+      (<span class="mono">wsl --install</span> in PowerShell, then paste the commands in Ubuntu).
+      Mac: build from source for now.</div></div>
+
+  <div class="grid two">
+    <div class="card"><h2>Your wallet</h2>
+      <p class="lede">Check your balance, send NEV and see your history in your browser.
+        Your key never leaves your computer.</p>
+      <div class="cmd"><code id="cmdWallet">nev369-wallet</code>
+        <button class="btn" data-copy="cmdWallet">Copy</button></div>
+      <p class="lede" style="margin-top:.9rem">Just want a wallet, not mining? Run the install
+        command, then <span class="mono">godshield wallet new</span>.</p></div>
+    <div class="card"><h2>Look anything up</h2>
+      <p class="lede">Every block, transaction and address — including your own — is public
+        on the explorer.</p>
+      <a class="btn primary" href="/explorer/" style="text-decoration:none;display:inline-block">Open the explorer →</a>
+      <p class="lede" style="margin-top:.9rem">Your address is your wallet's public key: 5,184
+        hex characters. Share it to receive NEV — always copy and paste it.</p></div>
+  </div>
+</section>
+
+<section role="tabpanel" data-panel="bridge" hidden>
+  <div class="head"><h1>Bridge</h1><span class="note">NEV369 ⇄ Ethereum</span></div>
+  <div class="card">
+    <h2>How authorization works</h2>
+    <p class="lede">The coordinator holds no signing key. Independent signers each observe NEV369
+    and submit a signed attestation; a mint is authorized only when a threshold of them agree on
+    byte-identical terms, past finality, inside the exposure limits, with the circuit closed.</p>
+    <table><tbody>
+      <tr><td>Authorization</td><td class="num">m-of-n threshold</td></tr>
+      <tr><td>Coordinator key</td><td class="num">none held</td></tr>
+      <tr><td>Replay</td><td class="num">one mint per lock id</td></tr>
+      <tr><td>Finality</td><td class="num">confirmations required</td></tr>
+      <tr><td>Exposure</td><td class="num">per-mint · per-window · total</td></tr>
+      <tr><td>Circuit breaker</td><td class="num">trips on reconciliation gap</td></tr>
+    </tbody></table>
+  </div>
+  <div class="card"><h2>Coordinator</h2>
+    <p class="lede">Threshold, exposure and circuit state.</p>
+    <button class="btn" id="btnBridge">Refresh</button>
+    <div class="out" id="bridgeOut"></div></div>
+  <div class="card"><h2>Units</h2>
+    <p class="lede">NEV369 and wNEV both use 8 decimals, so bridging is 1:1 in base units with no
+    scaling. A 10<sup>10</sup> factor anywhere means something removed has come back.</p>
+    <div class="row"><div><label for="convNev">NEV</label><input id="convNev" value="1"></div>
+      <div><label for="convUnits">Base units</label><input id="convUnits" value="100000000"></div></div></div>
+</section>
+
+<section role="tabpanel" data-panel="vault" hidden>
+  <div class="head"><h1>Nevaeh's Inheritance</h1>
+    <span class="note">XRP Ledger escrow · 3-of-5</span></div>
+  <div class="card"><h2>Where the money actually is</h2>
+    <p>The inheritance is a native XRP Ledger escrow. Not on NEV369, not in a database, not in
+    any system this console can reach. It is locked by XRPL consensus with a
+    <span class="mono">FinishAfter</span> of 28 July 2039, and no code in this repository can
+    release it early.</p>
+    <p class="lede">NEV369 holds a premine for her as well — 36,900,000 NEV, locked to the same
+    date by the node's own validation rules.</p>
+    <div class="out ok" id="vaultClock"></div></div>
+  <div class="card"><h2>The three vaults</h2>
+    <table><thead><tr><th>Vault</th><th>Holds</th><th>Threshold</th><th>Locked</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">nevaeh-xrpl-seed</td><td>XRPL family seed</td><td>3 of 5</td><td><span class="pill locked">2039</span></td></tr>
+        <tr><td class="mono">nevaeh-nev369</td><td>Dilithium5 key</td><td>3 of 5</td><td><span class="pill locked">2039</span></td></tr>
+        <tr><td class="mono">architect-wallet</td><td>Dilithium5 key</td><td>2 of 3</td><td>—</td></tr>
+      </tbody></table>
+    <p class="lede" style="margin:1rem 0 0">XRPL uses ed25519/secp256k1 and GodShield uses
+    Dilithium5 — different key types, so one vault cannot hold both.</p></div>
+  <div class="card"><h2>Annual check</h2>
+    <p class="lede">Thirteen of these is about twelve hours of work in total, and it is the
+    difference between this working and not.</p>
+    <table><tbody id="annualList"></tbody></table>
+    <p class="lede" style="margin:1rem 0 0">Recovery runs
+    <span class="mono">godshield vault recover</span> offline. Never here, never in a browser.</p></div>
+</section>
+
+<section role="tabpanel" data-panel="keys" hidden>
+  <div class="out" id="billingBanner"></div>
+  <div class="head"><h1>GodShield</h1>
+    <span class="note">Post-quantum security · Dilithium5 · NIST Level 5
+      <span class="net" id="gsState" hidden></span></span></div>
+  <div class="out" id="gsStats"></div>
+
+  <div class="card"><h2>Quantum-risk scanner</h2>
+    <p class="lede">Paste source code. GodShield flags the cryptography a quantum computer
+      breaks — RSA, ECDSA, secp256k1, Ed25519, Diffie-Hellman and friends — and writes a
+      migration plan to post-quantum signatures.</p>
+    <label for="gsCode">Source code</label>
+    <textarea id="gsCode" spellcheck="false" style="min-height:11rem"
+      placeholder="from ecdsa import SigningKey, SECP256k1&#10;sk = SigningKey.generate(curve=SECP256k1)"></textarea>
+    <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
+      <button class="btn primary" id="gsScan">Scan</button>
+      <button class="btn" id="gsSample">Load an example</button></div>
+    <div id="gsScanTable" style="margin-top:1rem"></div>
+    <div class="out" id="gsScanOut"></div></div>
+
+  <div class="grid two">
+    <div class="card"><h2>Verify a signature</h2>
+      <p class="lede">Check a Dilithium5 signature against a public key. Nothing secret is
+        ever sent — verification needs only public data.</p>
+      <label for="gsPub">Public key (hex, 2,592 bytes)</label>
+      <textarea id="gsPub" spellcheck="false" style="min-height:4rem"></textarea>
+      <label for="gsSig">Signature (hex)</label>
+      <textarea id="gsSig" spellcheck="false" style="min-height:4rem"></textarea>
+      <label for="gsMsg">Message</label><input id="gsMsg">
+      <label for="gsEnc">Message is</label>
+      <select id="gsEnc" class="sel"><option value="utf8">plain text</option>
+        <option value="hex">hex</option><option value="base64">base64</option></select>
+      <button class="btn primary" id="gsVerify" style="margin-top:1rem">Verify</button>
+      <div class="out" id="gsVerifyOut"></div></div>
+
+    <div class="card"><h2>Gateway audit trail</h2>
+      <p class="lede">Every gateway decision is appended to a hash-linked log. Each entry
+        commits to the one before it, so any edit to history breaks the chain — and
+        anyone can check it.</p>
+      <button class="btn" id="gsAudit">Load audit trail</button>
+      <div id="gsAuditTable" style="margin-top:1rem"></div>
+      <div class="out" id="gsAuditOut"></div></div>
+  </div>
+
+  <div class="card" id="gsPlans"><h2>API access &amp; plans</h2>
+    <p class="lede">Use GodShield from your own code with an API key. One Q-Lock account covers
+      both products: a paid plan raises your GodShield quota <em>and</em> lowers your escrow fee.</p>
+    <div id="gsSignedOut">
+      <div class="grid two">
+        <div><label for="gsEmail">Email</label><input id="gsEmail" type="email" autocomplete="username"></div>
+        <div><label for="gsPass">Password</label><input id="gsPass" type="password" autocomplete="current-password"></div>
+      </div>
+      <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
+        <button class="btn primary" id="gsLogin">Sign in</button>
+        <button class="btn" id="gsRegister">Create free account</button></div>
+      <div class="out" id="gsAuthOut"></div>
+    </div>
+    <div id="gsSignedIn" hidden>
+      <div class="acct">
+        <div><div class="k">Plan</div><div class="v" id="gsPlanName">—</div></div>
+        <div><div class="k">GodShield this month</div><div class="v" id="gsUsage">—</div>
+          <div class="bar"><span id="gsUsageBar"></span></div></div>
+      </div>
+      <label>Your API key</label>
+      <div class="cmd"><code id="gsKey">••••••••••••••••••••</code>
+        <button class="btn" id="gsKeyShow">Show</button>
+        <button class="btn" data-copy="gsKey" id="gsKeyCopy" hidden>Copy</button></div>
+      <div style="display:flex;gap:.6rem;margin-top:.7rem;flex-wrap:wrap">
+        <button class="btn" id="gsKeyRotate">Replace key</button>
+        <button class="btn" id="gsLogout">Sign out</button></div>
+      <p class="lede" style="margin-top:.9rem">Send it as <span class="mono">X-API-Key</span>:</p>
+      <div class="out">curl -X POST https://q-lock-ecosystem.com/godshield/api/v1/scan \
+  -H "X-API-Key: YOUR_KEY" -H "Content-Type: application/json" \
+  -d '{"source_code":"const ec = new EC(\"secp256k1\")"}'</div>
+      <div class="out" id="gsAcctOut"></div>
+    </div>
+    <div class="plans" id="gsPlanCards"></div>
+  </div>
+
+  <div class="card"><h2>Keys stay on your machine</h2>
+    <p class="lede">GodShield never generates or holds your secret keys on a server — a key
+      made on someone else's computer isn't really yours. Make them locally with the
+      GodShield command-line tool:</p>
+    <div class="out">godshield wallet new                       # NEV369 wallet, password-sealed
+godshield keygen --output key.json         # raw Dilithium5 keypair
+godshield vault create ...                 # split a key across guardians</div>
+    <p class="lede" style="margin-top:1rem">Public keys are ~2.6 KB and signatures ~4.6 KB —
+      that size is the real engineering cost of moving to post-quantum cryptography.</p>
+    <h2 style="margin-top:1.2rem">Chain support</h2>
+    <table><thead><tr><th>Chain</th><th>Path</th><th>Status</th></tr></thead><tbody>
+      <tr><td>NEV369</td><td>hex key is the address</td><td><span class="pill good">Native</span></td></tr>
+      <tr><td>Bitcoin</td><td>BIP-360 draft witness</td><td><span class="pill warn">Pending</span></td></tr>
+      <tr><td>Ethereum</td><td>PQ precompile / ERC-4337</td><td><span class="pill warn">Pending</span></td></tr>
+      <tr><td>Solana</td><td>custom program</td><td><span class="pill bad">GodShield only</span></td></tr>
+      <tr><td>XRP Ledger</td><td>ECDSA settles, Dilithium attests</td><td><span class="pill warn">Hybrid</span></td></tr>
+    </tbody></table></div>
+</section>
+
+<section role="tabpanel" data-panel="config" hidden>
+  <div class="head"><h1>Endpoints</h1><span class="note">Stored in this browser only</span></div>
+  <div class="card">
+    <div class="grid two">
+      <div><label for="epEscrow">Escrow API</label><input id="epEscrow">
+        <label for="epNode1">NEV369 node</label><input id="epNode1"></div>
+      <div><label for="epNode2">Second NEV369 node (optional)</label><input id="epNode2">
+        <label for="epRelayer">Bridge coordinator</label><input id="epRelayer">
+        <label for="epGodshield">GodShield API</label><input id="epGodshield"></div>
+    </div>
+    <label for="epToken">Bearer token</label><input id="epToken" placeholder="empty until you sign in">
+    <div style="display:flex;gap:.6rem;margin-top:1rem">
+      <button class="btn primary" id="cfgSave">Save</button>
+      <button class="btn" id="cfgReset">Reset to defaults</button></div>
+    <div class="out" id="cfgOut"></div>
+  </div>
+</section>
+
+<footer>Q-Lock — post-quantum settlement infrastructure.
+  <a href="/explorer">NEV369 Explorer →</a></footer>
+
+</main>
+</div>
+
+<script>
+'use strict';
+/* Where the services are. On the live site nginx routes them all under
+   this page's own origin, so a visitor's browser never needs a port or
+   a second domain. Running locally, the console talks to the Docker
+   stack's published ports directly. */
+const LOCAL=location.protocol==='file:'||
+  ['','localhost','127.0.0.1','penguin.linux.test'].includes(location.hostname);
+const O=location.origin;
+const DEFAULTS=LOCAL
+  ?{escrow:'http://localhost:3000',node1:'http://localhost:8080',
+    node2:'http://localhost:8081',relayer:'http://localhost:9370',
+    godshield:'http://localhost:8090',token:''}
+  :{escrow:O+'/api',node1:O+'/node',node2:O+'/node2',relayer:O+'/bridge',
+    godshield:O+'/godshield',token:''};
+// v3: endpoints saved by earlier versions pointed at localhost.
+const KEY='qlock.endpoints.v3';
+function loadCfg(){try{return Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch{return{...DEFAULTS};}}
+function saveCfg(c){try{localStorage.setItem(KEY,JSON.stringify(c));return true;}catch{return false;}}
+let cfg=loadCfg();
+
+async function call(base,path,{method='GET',body=null,auth=false}={}){
+  const headers={}; if(body)headers['Content-Type']='application/json';
+  if(auth&&cfg.token)headers['Authorization']='Bearer '+cfg.token;
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),8000);
+  try{
+    const res=await fetch(base.replace(/\/$/,'')+path,{method,headers,signal:ctl.signal,
+      body:body?JSON.stringify(body):undefined});
+    const txt=await res.text(); let d; try{d=JSON.parse(txt);}catch{d=txt;}
+    // Backend returns {"error":"…"} — read that field rather than the
+    // generic fallback the old frontend showed for every failure.
+    if(!res.ok)throw new Error(`${res.status} — ${(d&&d.error)||(typeof d==='string'?d:res.statusText)}`);
+    return d;
+  } finally{clearTimeout(t);}
+}
+const $=s=>document.querySelector(s), el=i=>document.getElementById(i);
+function show(t,v,k){const n=typeof t==='string'?$(t):t;n.className='out'+(k?' '+k:'');
+  n.textContent=typeof v==='string'?v:JSON.stringify(v,null,2);}
+const fmt=(n,d=2)=>Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+
+function setNode(svc,state,val,sub){
+  const n=document.querySelector(`.node[data-svc="${svc}"]`); if(!n)return;
+  n.querySelector('.led').className='led '+state;
+  n.querySelector('[data-val]').textContent=val;
+  if(sub!==undefined)n.querySelector('[data-sub]').textContent=sub;
+}
+async function pollPulse(){
+  try{ await call(cfg.escrow,'/health');
+    let p=''; try{const r=await call(cfg.escrow,'/price/xrp');
+      const v=r.price??r.usd??r.value; if(v)p='XRP $'+fmt(v,4);}catch{}
+    setNode('escrow','up','live',p||'XRP Ledger');
+  }catch{ setNode('escrow','down','offline','unreachable'); }
+
+  try{ const i=await call(cfg.node1,'/info');
+    const peers=Number(i.peers??0);
+    setNode('node1','up','#'+Number(i.height??0).toLocaleString(),
+            `${peers} peer${peers===1?'':'s'} connected`);
+  }catch{ setNode('node1','down','offline','unreachable'); }
+  try{ await call(cfg.godshield,'/health'); setNode('godshield','up','live','post-quantum API'); }
+  catch{ setNode('godshield','down','offline','unreachable'); }
+  try{ const h=await call(cfg.relayer,'/health');
+    if(!h||h.threshold===undefined)throw new Error('not a bridge');
+    const open=h.circuit==='open';
+    setNode('relayer',open?'down':'up',open?'HALTED':`${h.threshold}-of-${h.authorized_signers}`,
+            open?(h.reason||'').slice(0,34):'circuit closed');
+  }catch{
+    // The ETH bridge runs as a separate, optional service (docker profile
+    // "bridge"). Not running is its normal state until it is launched, so
+    // say that rather than flashing a red "unreachable" at visitors.
+    setNode('relayer','idle','coming soon','ETH bridge');
+  }
+}
+
+/* The dedication lives in block 0, so prove it by fetching the hash. */
+async function loadGenesis(){
+  try{ const b=await call(cfg.node1,'/block/0');
+    el('genesisHash').textContent=(b&&b.hash)?b.hash:'—';
+  }catch{ el('genesisHash').textContent='node unreachable'; }
+}
+
+const UNLOCK=Date.UTC(2039,6,28,0,0,0);
+function remaining(){
+  const ms=UNLOCK-Date.now();
+  if(ms<=0)return{short:'unlocked',long:'Unlocked — Nevaeh is 18'};
+  const d=Math.floor(ms/86400000),y=Math.floor(d/365.25),rd=d-Math.floor(y*365.25);
+  return{short:`${y}y ${rd}d`,long:`${y} years, ${rd} days`};
+}
+function tick(){
+  const r=remaining();
+  el('railCountdown').textContent=r.short;
+  setNode('vault','locked',r.short,'time-locked');
+  const b=el('vaultClock');
+  if(b)b.textContent=
+`Unlocks       28 July 2039, 00:00 UTC
+Remaining     ${r.long}
+Enforced by   XRP Ledger consensus — not by any code in this repository
+Beneficiary   Nevaeh, born 28 July 2021`;
+}
+
+el('annualList').innerHTML=[
+ 'Every backup copy of every vault file passes its integrity check',
+ 'Every guardian still holds their share and is contactable',
+ 'Full recovery tested with three shares, then a different three',
+ 'The XRPL escrow still shows on an explorer with the expected balance',
+ 'Owner and OfferSequence still recorded in at least three places',
+ 'Any guardian who has moved, died or become unreachable — reissue',
+ 'The software still builds; if not, migrate before it is urgent',
+].map(t=>`<tr><td>${t}</td></tr>`).join('');
+
+document.querySelectorAll('nav button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+    document.querySelectorAll('section[role=tabpanel]').forEach(s=>{s.hidden=s.dataset.panel!==b.dataset.tab;});
+    window.scrollTo(0,0);
+  });
+});
+
+function fillCfg(){el('epEscrow').value=cfg.escrow;el('epNode1').value=cfg.node1;
+  el('epNode2').value=cfg.node2;el('epRelayer').value=cfg.relayer;el('epToken').value=cfg.token;
+  el('epGodshield').value=cfg.godshield;}
+fillCfg();
+el('cfgSave').onclick=()=>{
+  cfg={escrow:el('epEscrow').value.trim(),node1:el('epNode1').value.trim(),
+       node2:el('epNode2').value.trim(),relayer:el('epRelayer').value.trim(),
+       godshield:el('epGodshield').value.trim(),token:el('epToken').value.trim()};
+  show('#cfgOut',saveCfg(cfg)?'Saved.':'Storage unavailable — applies to this page only.','ok');
+  pollPulse(); loadGenesis();
+};
+el('cfgReset').onclick=()=>{cfg={...DEFAULTS};saveCfg(cfg);fillCfg();show('#cfgOut','Reset.','ok');pollPulse();};
+
+el('btnLogin').onclick=async()=>{try{
+  const r=await call(cfg.escrow,'/auth/login',{method:'POST',
+    body:{email:el('loginEmail').value,password:el('loginPass').value}});
+  if(r.token){cfg.token=r.token;saveCfg(cfg);el('epToken').value=r.token;}
+  show('#authOut','Signed in.','ok');}catch(e){show('#authOut',e.message,'err');}};
+el('btnRegister').onclick=async()=>{try{
+  await call(cfg.escrow,'/auth/register',{method:'POST',
+    body:{email:el('loginEmail').value,password:el('loginPass').value}});
+  show('#authOut','Account created. Sign in to continue.','ok');}catch(e){show('#authOut',e.message,'err');}};
+/* ── Escrow: account ── */
+const escHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function showHtml(sel,html,kind){const n=$(sel);n.className='out'+(kind?' '+kind:'');n.innerHTML=html;}
+function authUi(){el('btnLogout').hidden=!cfg.token;el('btnLogin').hidden=!!cfg.token;
+  el('btnRegister').hidden=!!cfg.token;
+  if(cfg.token&&!el('authOut').textContent)show('#authOut','Signed in.','ok');}
+el('btnLogin').onclick=async()=>{try{
+  const r=await call(cfg.escrow,'/auth/login',{method:'POST',
+    body:{email:el('loginEmail').value.trim(),password:el('loginPass').value}});
+  if(!r.token)throw new Error('No token returned');
+  cfg.token=r.token;saveCfg(cfg);el('epToken').value=r.token;el('loginPass').value='';
+  show('#authOut','Signed in.','ok');authUi();}catch(e){show('#authOut',e.message,'err');}};
+el('btnRegister').onclick=async()=>{try{
+  await call(cfg.escrow,'/auth/register',{method:'POST',
+    body:{email:el('loginEmail').value.trim(),password:el('loginPass').value}});
+  show('#authOut','Account created — now press Sign in.','ok');}catch(e){show('#authOut',e.message,'err');}};
+el('btnLogout').onclick=()=>{cfg.token='';saveCfg(cfg);el('epToken').value='';
+  show('#authOut','Signed out.','');authUi();};
+
+/* ── Escrow: which ledger the backend is on ── */
+let XRPL_TEST=true;
+async function loadNet(){try{
+  const h=await call(cfg.escrow,'/health');
+  XRPL_TEST=/altnet|testnet|devnet/i.test(h.xrplNode||'');
+  const n=el('xrplNet');n.hidden=false;n.className='net '+(XRPL_TEST?'test':'main');
+  n.textContent=XRPL_TEST?'TESTNET':'MAINNET';}catch{}}
+const txLink=h=>h?`<a href="https://${XRPL_TEST?'testnet':'livenet'}.xrpl.org/transactions/${escHtml(h)}" target="_blank" rel="noopener">${escHtml(h.slice(0,16))}…</a>`:'—';
+
+/* ── Xaman signing: QR for a computer, button for a phone; poll until done ── */
+function signBox(box,p,title){
+  box.hidden=false;
+  box.innerHTML=`<img alt="Scan with Xaman" src="${escHtml(p.qrPng)}">
+    <div class="xs-body"><div class="xs-title">${escHtml(title)}</div>
+      <div>Scan with Xaman, or on this phone:</div>
+      <a class="btn primary" href="${escHtml(p.deeplink)}" target="_blank" rel="noopener">Open in Xaman</a>
+      <div class="xs-wait">Waiting for you to approve in Xaman…</div></div>`;
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitFor(path,done,box,{every=4000,limit=300000}={}){
+  const t0=Date.now();
+  try{
+    while(Date.now()-t0<limit){
+      await sleep(every);
+      let r;
+      try{r=await call(cfg.escrow,path);}
+      catch(e){if(/retry shortly|502|503|504|abort/i.test(e.message))continue;throw e;}
+      if(r.cancelled)throw new Error('Rejected or expired in Xaman — nothing was sent.');
+      if(done(r))return r;
+    }
+    throw new Error('Timed out waiting for Xaman. Nothing further was sent.');
+  }finally{box.hidden=true;box.innerHTML='';}
+}
+
+/* ── Step 2: connect ── */
+let XRPL=(()=>{try{return localStorage.getItem('qlock.xrpl')||'';}catch{return'';}})();
+function setAccount(a){
+  XRPL=a;try{localStorage.setItem('qlock.xrpl',a);}catch{}
+  el('escFrom').value=a;if(!el('escListAddr').value)el('escListAddr').value=a;
+  el('btnXConnect').textContent=a?'Switch Xaman account':'Connect Xaman';
+  if(a)show('#xConnected','Connected: '+a,'ok');
+}
+el('btnXConnect').onclick=async()=>{
+  const box=el('xConnectSign'),btn=el('btnXConnect');btn.disabled=true;
+  try{
+    const p=await call(cfg.escrow,'/wallet/xumm/connect',{method:'POST'});
+    signBox(box,p,'Sign in with Xaman');
+    const r=await waitFor(`/wallet/xumm/connect/${encodeURIComponent(p.uuid)}`,r=>r.connected,box);
+    setAccount(r.address);
+  }catch(e){show('#xConnected',e.message,'err');}
+  finally{btn.disabled=false;}
+};
+
+/* ── Step 3: create = fee, then lock ── */
+const XRPL_ADDR=/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
+function quote(){
+  const a=Number(el('escAmount').value),h=Number(el('escHours').value);
+  if(!(a>0)||!(h>0)){show('#escQuote','','');return;}
+  show('#escQuote',`Locks ${fmt(a,6)} XRP on the ledger · Q-Lock fee ${fmt(a*0.003,6)} XRP (0.3%) · `+
+    `reclaimable after ${fmt(h,1)} h if not released`,'');
+}
+el('escAmount').oninput=quote;el('escHours').oninput=quote;
+el('btnEscrowCreate').onclick=async()=>{
+  const out='#escrowOut',box=el('escSign'),btn=el('btnEscrowCreate');
+  const from=el('escFrom').value.trim(),to=el('escTo').value.trim();
+  const amount=Number(el('escAmount').value),lockHours=Number(el('escHours').value);
+  if(!cfg.token)return show(out,'Sign in first (step 1).','err');
+  if(!from)return show(out,'Connect Xaman first (step 2).','err');
+  if(!XRPL_ADDR.test(to))return show(out,'The recipient must be an XRPL address starting with r.','err');
+  if(to===from)return show(out,'The recipient must be a different address from yours.','err');
+  if(!(amount>0)||!(lockHours>0))return show(out,'Amount and hours must be more than zero.','err');
+  btn.disabled=true;
+  try{
+    show(out,'Preparing the Q-Lock fee…','');
+    const c=await call(cfg.escrow,'/escrow/xrpl/create',{method:'POST',auth:true,
+      body:{from,to,amount,lockHours}});
+    show(out,'','');
+    signBox(box,c,'Approval 1 of 2 — the Q-Lock fee');
+    const f=await waitFor(`/escrow/xrpl/create/${encodeURIComponent(c.uuid)}`,r=>r.feePaid,box);
+    show(out,'Fee paid ✓  Preparing the escrow…','ok');
+    const l=await call(cfg.escrow,`/escrow/xrpl/${encodeURIComponent(f.escrowId)}/lock`,{method:'POST',auth:true});
+    signBox(box,l,`Approval 2 of 2 — lock ${fmt(amount,6)} XRP in escrow`);
+    const k=await waitFor(`/escrow/xrpl/lock/${encodeURIComponent(l.uuid)}`,r=>r.locked,box);
+    showHtml(out,`<strong>Escrow locked on the XRP Ledger ✓</strong><br>`+
+      `${escHtml(fmt(amount,6))} XRP → ${escHtml(to)}<br>Transaction ${txLink(k.txHash)}<br>`+
+      `The recipient can release it now; you can reclaim it after ${escHtml(fmt(lockHours,1))} h.`,'ok');
+    el('escListAddr').value=from;loadEscrows();
+  }catch(e){show(out,e.message,'err');}
+  finally{btn.disabled=false;}
+};
+
+/* ── Your escrows: list + release / reclaim / resume ── */
+const STATUS={pending_fee:['warn','fee not paid'],pending_lock:['warn','fee paid · not locked'],
+  locked:['locked','locked'],released:['good','released'],refunded:['good','reclaimed']};
+async function loadEscrows(){
+  const a=el('escListAddr').value.trim(),out='#escrowListOut';
+  if(!a){show(out,'Enter an address.','err');return;}
+  try{
+    const r=await call(cfg.escrow,`/escrow/xrpl/list/${encodeURIComponent(a)}`);
+    const rows=r.escrows||[];
+    if(!rows.length){el('escrowTable').innerHTML='';show(out,'No escrows for this address yet.','');return;}
+    el('escrowTable').innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Status</th><th>From → To</th>'+
+      '<th class="num">XRP</th><th class="num">Seq</th><th>Tx</th><th></th></tr></thead><tbody>'+
+      rows.map(e=>{
+        const [cls,label]=STATUS[e.status]||['warn',e.status];
+        const mine=XRPL&&XRPL===e.from, party=XRPL&&(XRPL===e.from||XRPL===e.to);
+        const acts=[];
+        if(e.status==='pending_lock'&&mine)acts.push(`<button class="btn" data-act="lock" data-id="${escHtml(e.id)}">Lock now</button>`);
+        if(e.status==='locked'&&party)acts.push(`<button class="btn primary" data-act="finish" data-id="${escHtml(e.id)}">Release</button>`);
+        if(e.status==='locked'&&mine&&e.canCancel)acts.push(`<button class="btn" data-act="cancel" data-id="${escHtml(e.id)}">Reclaim</button>`);
+        return `<tr><td><span class="pill ${cls}">${escHtml(label)}</span></td>
+          <td class="mono">${escHtml((e.from||'').slice(0,8))}… → ${escHtml((e.to||'').slice(0,8))}…</td>
+          <td class="num">${escHtml(fmt(e.amount,6))}</td>
+          <td class="num">${e.offerSequence??'—'}</td><td class="mono">${txLink(e.createTxHash)}</td>
+          <td><div class="acts">${acts.join('')}</div></td></tr>`;}).join('')+'</tbody></table></div>';
+    show(out,'','');
+  }catch(e){el('escrowTable').innerHTML='';show(out,e.message,'err');}
+}
+el('btnEscrowList').onclick=loadEscrows;
+el('escrowTable').addEventListener('click',async ev=>{
+  const b=ev.target.closest('button[data-act]');if(!b)return;
+  const kind=b.dataset.act,id=b.dataset.id,box=el('actSign'),out='#escrowListOut';
+  if(!cfg.token)return show(out,'Sign in first (step 1).','err');
+  if(!XRPL)return show(out,'Connect Xaman first (step 2).','err');
+  b.disabled=true;
+  try{
+    let p,path,done,title;
+    if(kind==='lock'){
+      p=await call(cfg.escrow,`/escrow/xrpl/${encodeURIComponent(id)}/lock`,{method:'POST',auth:true});
+      path=`/escrow/xrpl/lock/${encodeURIComponent(p.uuid)}`;done=r=>r.locked;title='Lock the XRP in escrow';
+    }else{
+      p=await call(cfg.escrow,`/escrow/xrpl/${encodeURIComponent(id)}/${kind}`,{method:'POST',auth:true,body:{account:XRPL}});
+      path=`/escrow/xrpl/${kind}/${encodeURIComponent(p.uuid)}`;
+      done=kind==='finish'?r=>r.released:r=>r.refunded;
+      title=kind==='finish'?'Release the escrow to the recipient':'Reclaim the escrow';
+    }
+    signBox(box,p,title);
+    const r=await waitFor(path,done,box);
+    await loadEscrows();
+    showHtml(out,`<strong>${kind==='finish'?'Released ✓':kind==='cancel'?'Reclaimed ✓':'Locked ✓'}</strong> `+
+      `Transaction ${txLink(r.txHash)}`+(r.quantumProof?'<br>GodShield attestation recorded.':''),'ok');
+  }catch(e){show(out,e.message,'err');}
+  finally{b.disabled=false;}
+});
+if(XRPL)setAccount(XRPL);
+authUi();quote();loadNet();
+
+async function loadNetwork(){
+  try{
+    const i=await call(cfg.node1,'/info');
+    const peers=Number(i.peers??0);
+    const cell=(k,v)=>`<div><div class="k">${k}</div><div class="v">${escHtml(v)}</div></div>`;
+    el('netStats').innerHTML=
+      cell('Block height',fmt(i.height,0))+
+      cell('Connected peers',fmt(peers,0))+
+      cell('Difficulty',String(i.difficulty??'—'))+
+      cell('Block reward',(i.block_reward_nev||'—').replace(/\.?0+$/,'')+' NEV')+
+      cell('Circulating',fmt(Number(i.circulating_supply||0)/1e8,0)+' NEV')+
+      cell('Waiting in mempool',fmt(i.mempool_size??0,0));
+    show('#chainOut',`Latest block ${i.latest_hash||'—'}`,'');
+  }catch(e){el('netStats').innerHTML='';show('#chainOut','Public node unreachable — '+e.message,'err');}
+}
+el('btnChainInfo').onclick=loadNetwork;
+document.querySelector('[data-tab="chain"]').addEventListener('click',loadNetwork);
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+  const t=el(b.dataset.copy).textContent;
+  try{await navigator.clipboard.writeText(t);b.textContent='Copied';}
+  catch{const r=document.createRange();r.selectNodeContents(el(b.dataset.copy));
+    const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected';}
+  setTimeout(()=>b.textContent='Copy',1800);}));
+
+el('btnBridge').onclick=async()=>{
+  try{show('#bridgeOut',await call(cfg.relayer,'/health'),'ok');}
+  catch(e){show('#bridgeOut',e.message,'err');}};
+const UNITS=100000000n;
+el('convNev').addEventListener('input',e=>{
+  const v=e.target.value.trim(); if(!/^\d*\.?\d*$/.test(v))return;
+  const [i,f='']=v.split('.'); const frac=(f+'00000000').slice(0,8);
+  try{el('convUnits').value=((BigInt(i||0)*UNITS)+BigInt(frac||0)).toString();}catch{}});
+el('convUnits').addEventListener('input',e=>{
+  const v=e.target.value.trim(); if(!/^\d*$/.test(v))return;
+  try{const n=BigInt(v||0); el('convNev').value=`${n/UNITS}.${String(n%UNITS).padStart(8,'0')}`;}catch{}});
+
+/* ── GodShield ── */
+async function gsStatus(){
+  const st=el('gsState');
+  try{
+    const s=await call(cfg.godshield,'/api/v1/stats');
+    st.hidden=false;st.className='net main';st.textContent='OPERATIONAL';
+    const up=Number(s.uptime_seconds||0),h=Math.floor(up/3600),m=Math.floor(up%3600/60);
+    show('#gsStats',`${s.version||'GodShield'} · ${fmt(s.scans,0)} scans · ${fmt(s.verifications,0)} verifications · up ${h}h ${m}m`,'');
+  }catch{st.hidden=false;st.className='net test';st.textContent='OFFLINE';
+    show('#gsStats','GodShield API is not reachable right now.','err');}
+}
+const GS_SAMPLE=`// wallet.js — signs payments with secp256k1 ECDSA
+const { ec: EC } = require('elliptic');
+const ec = new EC('secp256k1');
+const key = ec.genKeyPair();
+const sig = key.sign(msgHash);
+
+# server.py — RSA session keys
+from cryptography.hazmat.primitives.asymmetric import rsa
+private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+`;
+el('gsSample').onclick=()=>{el('gsCode').value=GS_SAMPLE;};
+el('gsScan').onclick=async()=>{
+  const code=el('gsCode').value;
+  if(!code.trim()){show('#gsScanOut','Paste some source code first.','err');return;}
+  if(code.length>900000){show('#gsScanOut','That is over 900 KB — scan it in parts.','err');return;}
+  const btn=el('gsScan');btn.disabled=true;el('gsScanTable').innerHTML='';
+  try{
+    const r=await call(cfg.godshield,'/api/v1/scan',{method:'POST',auth:true,body:{source_code:code}});
+    const v=r.vulnerabilities||[];
+    if(!v.length){show('#gsScanOut','No quantum-vulnerable primitives recognised in this code.','ok');}
+    else{
+      const crit=v.filter(x=>x.severity==='CRITICAL').length;
+      el('gsScanTable').innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Line</th><th>Found</th>'+
+        '<th>Severity</th><th>Why it matters</th><th>Replace with</th></tr></thead><tbody>'+
+        v.map(x=>`<tr><td class="num">${x.line??'—'}</td><td class="mono">${escHtml(x.crypto_type)}</td>
+          <td><span class="pill ${x.severity==='CRITICAL'?'bad':'warn'}">${escHtml(x.severity)}</span></td>
+          <td>${escHtml(x.description)}</td><td>${escHtml(x.recommendation)}</td></tr>`).join('')+
+        '</tbody></table></div>';
+      show('#gsScanOut',`${v.length} finding${v.length>1?'s':''} (${crit} critical) · risk score ${r.severity_score}\n\n`+
+        (r.migration_plan||''),crit?'err':'');
+    }
+    gsStatus();gsAccount();
+  }catch(e){show('#gsScanOut',e.message,'err');}
+  finally{btn.disabled=false;}
+};
+el('gsVerify').onclick=async()=>{
+  const pub=el('gsPub').value.replace(/\s+/g,''),sig=el('gsSig').value.replace(/\s+/g,'');
+  if(!/^[0-9a-fA-F]{5184}$/.test(pub)){show('#gsVerifyOut','The public key must be 5,184 hex characters (2,592 bytes).','err');return;}
+  if(!/^[0-9a-fA-F]+$/.test(sig)){show('#gsVerifyOut','The signature must be hex.','err');return;}
+  try{
+    const r=await call(cfg.godshield,'/api/v1/verify',{method:'POST',auth:true,body:{
+      public_key:pub,signature:sig,message:el('gsMsg').value,encoding:el('gsEnc').value}});
+    show('#gsVerifyOut',(r.valid?'✓ Valid signature':'✗ Not valid')+`\n${r.message}\nSigner fingerprint ${r.signer_fingerprint}`,r.valid?'ok':'err');
+    gsStatus();
+  }catch(e){show('#gsVerifyOut',e.message,'err');}
+};
+el('gsAudit').onclick=async()=>{
+  try{
+    const r=await call(cfg.godshield,'/api/v1/gateway/audit');
+    const e=(r.entries||[]).slice(-25).reverse();
+    el('gsAuditTable').innerHTML=e.length?'<div style="overflow-x:auto"><table><thead><tr><th class="num">#</th><th>When</th>'+
+      '<th>Event</th><th>Identity</th><th>Outcome</th></tr></thead><tbody>'+
+      e.map(x=>`<tr><td class="num">${x.index}</td><td>${escHtml(new Date(x.timestamp*1000).toLocaleString('en-GB'))}</td>
+        <td>${escHtml(x.event)}</td><td class="mono">${escHtml((x.identity||'').slice(0,20))}</td>
+        <td>${escHtml(x.outcome)}</td></tr>`).join('')+'</tbody></table></div>':'';
+    show('#gsAuditOut',`${r.chain_intact?'✓ Chain intact':'✗ CHAIN BROKEN'} · ${fmt(r.length,0)} entries\nHead ${r.head}`,
+      r.chain_intact?'ok':'err');
+  }catch(e){el('gsAuditTable').innerHTML='';show('#gsAuditOut',e.message,'err');}
+};
+/* ── GodShield account, plans and Stripe checkout ── */
+let GS_KEY='';
+async function gsPlans(current){
+  let d;try{d=await call(cfg.escrow,'/billing/plans');}catch{el('gsPlanCards').innerHTML='';return;}
+  el('gsPlanCards').innerHTML=(d.plans||[]).map(p=>{
+    const cur=p.id===current;
+    const btn=cur?'<button class="btn" disabled>Your plan</button>'
+      :p.id==='free'?''
+      :p.checkout?`<button class="btn primary" data-upgrade="${escHtml(p.id)}">Upgrade to ${escHtml(p.name)}</button>`
+      :'<a class="btn" href="mailto:founders@q-lock-ecosystem.com" style="text-decoration:none;text-align:center">Contact us</a>';
+    return `<div class="plan${cur?' current':''}"><h3>${escHtml(p.name)}</h3>
+      <div class="price">${escHtml(p.price||'—')}</div>
+      <ul><li>${fmt(p.godshieldCalls,0)} GodShield calls / month</li>
+        <li>${escHtml(String(p.escrowFeePercent))}% escrow fee</li>
+        <li>${p.escrowsPerMonth?fmt(p.escrowsPerMonth,0)+' escrows / month':'Unlimited escrows'}</li></ul>${btn}</div>`;
+  }).join('');
+}
+async function gsAccount(){
+  if(!cfg.token){el('gsSignedOut').hidden=false;el('gsSignedIn').hidden=true;gsPlans('');return;}
+  try{
+    const a=await call(cfg.escrow,'/godshield/account',{auth:true});
+    GS_KEY=a.apiKey||'';
+    el('gsSignedOut').hidden=true;el('gsSignedIn').hidden=false;
+    el('gsPlanName').textContent=(a.plan||'free').replace(/^./,c=>c.toUpperCase());
+    const g=a.godshield||{};
+    el('gsUsage').textContent=`${fmt(g.used||0,0)} / ${fmt(g.quota||0,0)}`;
+    el('gsUsageBar').style.width=Math.min(100,100*(g.used||0)/Math.max(1,g.quota||1))+'%';
+    gsPlans(a.plan);
+  }catch(e){
+    if(/^401/.test(e.message)){cfg.token='';saveCfg(cfg);authUi();return gsAccount();}
+    show('#gsAcctOut',e.message,'err');
+  }
+}
+async function gsAuth(path){
+  const email=el('gsEmail').value.trim(),password=el('gsPass').value;
+  try{
+    if(path==='register'){
+      await call(cfg.escrow,'/auth/register',{method:'POST',body:{email,password}});
+    }
+    const r=await call(cfg.escrow,'/auth/login',{method:'POST',body:{email,password}});
+    cfg.token=r.token;saveCfg(cfg);el('epToken').value=r.token;el('gsPass').value='';
+    authUi();show('#gsAuthOut','','');gsAccount();
+  }catch(e){show('#gsAuthOut',e.message,'err');}
+}
+el('gsLogin').onclick=()=>gsAuth('login');
+el('gsRegister').onclick=()=>gsAuth('register');
+el('gsLogout').onclick=()=>{cfg.token='';saveCfg(cfg);GS_KEY='';el('gsKey').textContent='••••••••••••••••••••';
+  el('gsKeyCopy').hidden=true;el('gsKeyShow').hidden=false;authUi();gsAccount();};
+el('gsKeyShow').onclick=()=>{el('gsKey').textContent=GS_KEY;el('gsKeyShow').hidden=true;el('gsKeyCopy').hidden=false;};
+el('gsKeyRotate').onclick=async()=>{
+  if(!confirm('Replace your API key? The old key stops working immediately.'))return;
+  try{const r=await call(cfg.escrow,'/godshield/account/rotate-key',{method:'POST',auth:true});
+    GS_KEY=r.apiKey;el('gsKey').textContent=GS_KEY;el('gsKeyShow').hidden=true;el('gsKeyCopy').hidden=false;
+    show('#gsAcctOut','New key issued. Update it wherever you use GodShield.','ok');}
+  catch(e){show('#gsAcctOut',e.message,'err');}
+};
+el('gsPlanCards').addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-upgrade]');if(!b)return;
+  if(!cfg.token){show('#gsAuthOut','Sign in or create a free account first.','err');
+    el('gsEmail').focus();return;}
+  b.disabled=true;b.textContent='Opening secure checkout…';
+  try{const r=await call(cfg.escrow,'/billing/checkout',{method:'POST',auth:true,body:{plan:b.dataset.upgrade}});
+    location.href=r.checkoutUrl;}
+  catch(e){b.disabled=false;b.textContent='Upgrade';show('#gsAcctOut',e.message,'err');}
+});
+document.querySelector('[data-tab="keys"]').addEventListener('click',()=>{gsStatus();gsAccount();});
+/* Back from Stripe: /billing/success or /billing/cancel */
+(function(){
+  const p=location.pathname;
+  if(p!=='/billing/success'&&p!=='/billing/cancel')return;
+  history.replaceState(null,'','/');
+  document.querySelector('[data-tab="keys"]').click();
+  if(p==='/billing/success'){
+    show('#billingBanner','Payment received — thank you. Your plan upgrades within a few seconds; this page refreshes it.','ok');
+    let n=0;const t=setInterval(()=>{gsAccount();if(++n>=6)clearInterval(t);},3000);
+  }else show('#billingBanner','Checkout cancelled — nothing was charged.','');
+  el('gsPlans').scrollIntoView({behavior:'smooth'});
+})();
+
+tick(); setInterval(tick,60000);
+pollPulse(); setInterval(pollPulse,20000);
+loadGenesis();
+</script>
+</body>
+</html>

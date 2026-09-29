@@ -1,0 +1,52 @@
+[package]
+name = "qlock-escrow"
+description = "Non-custodial XRP Ledger escrow with post-quantum settlement attestation."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "qlock-escrow"
+path = "src/main.rs"
+
+# The inheritance ceremony. A CLI on purpose — locking a large sum for
+# thirteen years should not happen behind a button in a browser session.
+[[bin]]
+name = "qlock-inheritance"
+path = "src/bin/inheritance.rs"
+
+[dependencies]
+godshield-core = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tower_governor = { workspace = true }
+governor = { workspace = true }
+sqlx = { workspace = true }
+reqwest = { workspace = true }
+jsonwebtoken = { workspace = true }
+# auth.rs uses bcrypt for passwords; argon2 is nevaeh-vault's KDF.
+# Different jobs — but passwords must never move between them without a
+# migration keyed on hash prefix, or existing users lock out.
+bcrypt = { workspace = true }
+sha2 = { workspace = true }
+hmac = { workspace = true }
+subtle = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+# qlock-inheritance only.
+clap = { workspace = true }
+zeroize = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sentry = { workspace = true }
+sentry-tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "godshield-scanner"
+description = "Identifier-level detection of quantum-vulnerable cryptographic primitives in source code. Not a certification."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# serde only. No walkdir, no regex, no godshield-core.
+#
+# The scanner does not sign, hash or verify anything, so depending on
+# godshield-core would mean anyone auditing a third-party codebase pulls
+# in a Dilithium5 implementation to do it. Directory walking is ~30 lines
+# of std::fs and matching is a boundary check, so neither dependency
+# earns its place in a tool whose whole job is telling people to audit
+# their dependency tree.
+serde = { workspace = true }
+
+[dev-dependencies]

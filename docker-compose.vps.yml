@@ -1,0 +1,64 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Public-server override. Use it with the main file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+#
+# scripts/vps-setup.sh does this for you.
+#
+# The main file publishes every service port on all interfaces, which is
+# right on a laptop. On an internet-facing server it would expose
+# Prometheus (no login), Grafana, and the raw escrow and node APIs
+# around nginx's rate limits. Docker writes its own iptables rules
+# ahead of ufw, so a firewall alone does not stop that.
+#
+# Here, only three things face the internet:
+#   80 / 443   nginx: the website, explorer, /node/ and /api/
+#   4001/4002  libp2p: other NEV369 nodes connect here
+# Everything else is bound to 127.0.0.1. Reach Grafana over an SSH
+# tunnel:  ssh -L 3001:127.0.0.1:3001 root@<server>
+#
+# `!override` replaces the main file's port list instead of appending to
+# it. It needs Docker Compose 2.24.4 or newer; get.docker.com installs
+# a current one.
+# ═══════════════════════════════════════════════════════════════════════
+
+services:
+  escrow:
+    ports: !override
+      - "127.0.0.1:3000:8080"
+
+  nev369-node-1:
+    # Mines around the clock so the chain never waits for a laptop.
+    # The miner is one thread, so it can use at most one core; 1.5 leaves
+    # room for the API. The low cpu_shares weight means nginx, escrow
+    # and GodShield always win the CPU when the server is busy.
+    cpus: "1.5"
+    cpu_shares: 256
+    ports: !override
+      - "127.0.0.1:8080:8080"
+      - "4001:4001"
+
+  # The public server runs ONE node. node-2 exists for local testing of
+  # fork/sync behaviour; on a real network the other nodes are other
+  # people's (and a second node here would inflate the peer count).
+  nev369-node-2:
+    profiles: ["second-node"]
+    ports: !override
+      - "127.0.0.1:8081:8080"
+      - "4002:4001"
+
+  bridge-coordinator:
+    ports: !override
+      - "127.0.0.1:9370:9370"
+
+  godshield-api:
+    ports: !override
+      - "127.0.0.1:8090:8090"
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    ports: !override
+      - "127.0.0.1:3001:3000"

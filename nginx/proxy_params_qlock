@@ -1,0 +1,59 @@
+# nginx/proxy_params_qlock
+#
+# Shared proxy settings, included by every location in nginx.conf.
+#
+# Previously each location repeated these by hand, which is how one ends
+# up with a block that quietly forgets X-Forwarded-For — and then rate
+# limiting and audit logs both see the proxy's IP instead of the client's.
+
+proxy_http_version 1.1;
+
+# Forward the real client identity. tower-governor's SmartIpKeyExtractor
+# reads X-Forwarded-For; without it every request appears to come from
+# the nginx container and per-IP rate limiting silently does nothing.
+proxy_set_header Host              $host;
+proxy_set_header X-Real-IP         $remote_addr;
+proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-Host  $host;
+
+# WebSocket upgrade — the Xumm status socket needs this.
+#
+# $connection_upgrade is defined by a `map` block in nginx.conf. Without
+# that map nginx refuses to start with "unknown variable". A previous
+# version of this file also set `Connection ""` immediately afterwards,
+# which silently overrode the upgrade header and broke WebSockets while
+# appearing configured.
+proxy_set_header Upgrade    $http_upgrade;
+proxy_set_header Connection $connection_upgrade;
+
+proxy_connect_timeout 10s;
+proxy_send_timeout    60s;
+proxy_read_timeout    60s;
+proxy_buffering       on;
+proxy_buffer_size     8k;
+proxy_buffers         8 8k;
+
+# Do not leak upstream implementation details to clients.
+proxy_hide_header X-Powered-By;
+proxy_hide_header Server;
+
+# If an upstream is down, fail fast rather than hanging the client.
+proxy_next_upstream       error timeout http_502 http_503 http_504;
+proxy_next_upstream_tries 2;
+
+# ─────────────────────────────────────────────────────────────────────
+# NOTE ON UPSTREAM KEEPALIVE
+#
+# The `keepalive 32;` directives in nginx.conf's upstream blocks are
+# now inert for these locations. Reusing an upstream connection needs
+# `proxy_set_header Connection ""`, and setting that here is precisely
+# the bug called out above — it overrides $connection_upgrade and breaks
+# the Xumm WebSocket.
+#
+# Working WebSockets beats upstream connection reuse on a service
+# handling low hundreds of requests per minute behind a per-IP rate
+# limit. If keepalive ever matters, the fix is a separate location for
+# the WebSocket path with its own include, not setting Connection ""
+# globally and rediscovering this.
+# ─────────────────────────────────────────────────────────────────────

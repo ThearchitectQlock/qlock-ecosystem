@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+# ═══════════════════════════════════════════════════════════════════════
+# Builds the public downloads — the NEV369 node and the godshield CLI —
+# and exports just the binaries (no image). Used by
+# scripts/build-downloads.sh:
+#
+#   docker build -f docker/Dockerfile.downloads --target export \
+#       --output type=local,dest=<dir> .
+#
+# Built on Debian bookworm (glibc 2.36), so the binaries run on Debian 12,
+# Ubuntu 22.04 and newer, ChromeOS's Linux terminal and WSL's Ubuntu.
+# ═══════════════════════════════════════════════════════════════════════
+
+FROM rust:1.88.0-slim-bookworm AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev ca-certificates clang binutils \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates ./crates
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --locked --bin nev369-node --bin godshield \
+ && mkdir -p /out \
+ && cp /app/target/release/nev369-node /app/target/release/godshield /out/ \
+ && strip /out/nev369-node /out/godshield
+
+FROM scratch AS export
+COPY --from=builder /out/ /

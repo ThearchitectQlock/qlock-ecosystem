@@ -1,0 +1,353 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Q-Lock — unified local stack
+#
+# MERGED from two compose files that could not run at the same time:
+# one defined the NEV369 two-node testnet, the other the escrow backend
+# with Postgres. Both mapped host :8080 and both declared an nginx on
+# :80/:443, so bringing up the second failed on port collisions.
+#
+# Also removed: `version: "3.9"`. Compose v2 ignores it and warns.
+#
+# Host port map (all distinct):
+#   3000  qlock-escrow API
+#   8080  nev369-node-1 API      4001  node-1 libp2p
+#   8081  nev369-node-2 API      4002  node-2 libp2p
+#   9370  bridge coordinator     (profile: bridge)
+#   8090  godshield-api          (profile: godshield)
+#   9090  prometheus
+#   3001  grafana
+#   80/443 nginx — console at /, explorer at /explorer/
+#
+# Profiles:
+#   docker compose up -d                          core stack
+#   docker compose --profile godshield up -d      + GodShield API / gateway
+#   docker compose --profile bridge up -d         + ETH bridge coordinator
+#                                                   and submitter
+#
+# Postgres and Redis are deliberately NOT published to the host. They are
+# reachable only on the internal network.
+# ═══════════════════════════════════════════════════════════════════════
+
+name: qlock
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &default-restart
+  restart: unless-stopped
+
+services:
+
+  # ── Data ─────────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: qlock-postgres
+    <<: [*default-restart]
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: qlock
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      POSTGRES_DB: qlock
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Applied once, on first initialisation of an empty volume only.
+      # Subsequent schema changes need a real migration, not an edit here.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qlock -d qlock"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [qlock-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: qlock-redis
+    <<: [*default-restart]
+    logging: *default-logging
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [qlock-net]
+
+  # ── Escrow backend ───────────────────────────────────────────────────
+
+  escrow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.escrow
+    image: qlock-escrow:local
+    container_name: qlock-escrow
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "3000:8080"
+    environment:
+      DATABASE_URL: postgresql://qlock:${DB_PASSWORD}@postgres:5432/qlock
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Explicitly development. Setting this to production here would
+      # panic the container at startup unless a persistent attestation
+      # identity is also injected — which is the intended behaviour in
+      # production and the wrong default for a local stack.
+      QLOCK_ENV: ${QLOCK_ENV:-development}
+      QLOCK_TREASURY_ADDRESS: ${QLOCK_TREASURY_ADDRESS:-}
+      XRPL_NODE: ${XRPL_NODE:-https://s.altnet.rippletest.net:51234}
+      XUMM_API_KEY: ${XUMM_API_KEY:-}
+      XUMM_API_SECRET: ${XUMM_API_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE:-}
+      STRIPE_PRICE_LABEL_PRO: ${STRIPE_PRICE_LABEL_PRO:-}
+      STRIPE_PRICE_LABEL_ENTERPRISE: ${STRIPE_PRICE_LABEL_ENTERPRISE:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://q-lock-ecosystem.com,http://localhost}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
+      # Persistent Dilithium5 attestation identity (keypair JSON). Required
+      # when QLOCK_ENV=production. QLOCK_ATTESTATION_VAULT is deliberately
+      # not passed: the server refuses to unlock a vault unattended.
+      QLOCK_ATTESTATION_KEY: ${QLOCK_ATTESTATION_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [qlock-net]
+
+  # ── NEV369 Layer-1 ───────────────────────────────────────────────────
+  #
+  # Two nodes, because a single node proves nothing about the network
+  # layer. Fork resolution, reorg handling and the orphan buffer only
+  # exercise when blocks arrive from a genuinely separate process.
+
+  nev369-node-1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nev369
+    image: nev369-node:local
+    container_name: nev369-node-1
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "8080:8080"
+      - "4001:4001"
+    environment: &nev369-env
+      RUST_LOG: ${RUST_LOG:-info}
+      NEV369_ENV: ${NEV369_ENV:-development}
+      NEV369_DB_PATH: /home/nev369/data/chain.db
+      NEV369_P2P_PORT: "4001"
+      NEV369_ALLOWED_ORIGINS: ${NEV369_ALLOWED_ORIGINS:-https://q-lock-ecosystem.com,http://localhost,http://localhost:3000}
+      # Both nodes MUST agree on these. Genesis pins them into the chain,
+      # and a node whose config disagrees with its recorded genesis
+      # refuses to start rather than crediting a premine to an address
+      # that does not own it on-chain. Empty = development placeholders;
+      # production refuses to boot on placeholders.
+      NEV369_ARCHITECT_ADDRESS: ${NEV369_ARCHITECT_ADDRESS:-}
+      NEV369_NEVAEH_VAULT_ADDRESS: ${NEV369_NEVAEH_VAULT_ADDRESS:-}
+      # Pinned genesis (chain-spec/nev369-mainnet.env). Required in production.
+      NEV369_GENESIS_TIMESTAMP: ${NEV369_GENESIS_TIMESTAMP:-}
+      NEV369_GENESIS_HASH: ${NEV369_GENESIS_HASH:-}
+      # Node 1 mines when NEV369_MINING=1 and a reward address is set.
+      NEV369_MINING: ${NEV369_MINING:-0}
+      NEV369_MINER_ADDRESS: ${NEV369_MINER_ADDRESS:-}
+    volumes:
+      - nev369_data_1:/home/nev369/data
+    networks: [qlock-net]
+
+  nev369-node-2:
+    image: nev369-node:local
+    container_name: nev369-node-2
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "8081:8080"
+      - "4002:4001"
+    environment:
+      <<: *nev369-env
+      # Validator only: it verifies and relays, it does not mine.
+      NEV369_MINING: "0"
+      NEV369_BOOTSTRAP_PEERS: /dns4/nev369-node-1/tcp/4001
+    volumes:
+      - nev369_data_2:/home/nev369/data
+    depends_on:
+      nev369-node-1:
+        condition: service_healthy
+    networks: [qlock-net]
+
+  # ── Bridge (profile: bridge) ─────────────────────────────────────────
+  #
+  # The coordinator collects signer attestations and authorizes a mint
+  # only when BRIDGE_THRESHOLD of them agree. It holds no signing key.
+  # The submitter carries authorized mints to Ethereum with a gas-only
+  # key. Signers themselves run elsewhere, on separate machines.
+
+  bridge-coordinator:
+    profiles: ["bridge"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bridge
+    image: nev369-bridge:local
+    container_name: nev369-bridge-coordinator
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "9370:9370"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RELAYER_BIND: 0.0.0.0:9370
+      RELAYER_STORE: /home/bridge/data/relayer.json
+      RELAYER_KEY: ${RELAYER_KEY:-}
+      RELAYER_ALLOWED_ORIGINS: ${RELAYER_ALLOWED_ORIGINS:-https://q-lock-ecosystem.com,http://localhost}
+      BRIDGE_SIGNERS: ${BRIDGE_SIGNERS:-}
+      BRIDGE_THRESHOLD: ${BRIDGE_THRESHOLD:-3}
+      BRIDGE_FINALITY: ${BRIDGE_FINALITY:-60}
+      BRIDGE_PER_MINT_CAP: ${BRIDGE_PER_MINT_CAP:-10000000000000}
+      BRIDGE_WINDOW_CAP: ${BRIDGE_WINDOW_CAP:-100000000000000}
+      BRIDGE_WINDOW_SECONDS: ${BRIDGE_WINDOW_SECONDS:-86400}
+      BRIDGE_TOTAL_CAP: ${BRIDGE_TOTAL_CAP:-1000000000000000}
+      BRIDGE_POLICY_ID: ${BRIDGE_POLICY_ID:-bridge-v1}
+      BRIDGE_ADDRESS: ${BRIDGE_ADDRESS:-}
+      ETH_CHAIN_ID: ${ETH_CHAIN_ID:-11155111}
+    volumes:
+      - bridge_data:/home/bridge/data
+    networks: [qlock-net]
+
+  bridge-submitter:
+    profiles: ["bridge"]
+    image: nev369-bridge:local
+    container_name: nev369-bridge-submitter
+    entrypoint: ["nev369-submitter"]
+    <<: [*default-restart]
+    logging: *default-logging
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      SUBMITTER_ETH_KEY: ${SUBMITTER_ETH_KEY:-}
+      ETH_RPC_URL: ${ETH_RPC_URL:-}
+      BRIDGE_ADDRESS: ${BRIDGE_ADDRESS:-}
+      COORDINATOR_URL: http://bridge-coordinator:9370
+      RELAYER_KEY: ${RELAYER_KEY:-}
+      SUBMITTER_POLL_SECS: ${SUBMITTER_POLL_SECS:-15}
+      SUBMITTER_RECEIPT_TIMEOUT_SECS: ${SUBMITTER_RECEIPT_TIMEOUT_SECS:-180}
+    healthcheck:
+      disable: true
+    depends_on:
+      bridge-coordinator:
+        condition: service_healthy
+    networks: [qlock-net]
+
+  # ── GodShield API (profile: godshield) ───────────────────────────────
+
+  godshield-api:
+    profiles: ["godshield"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.godshield
+    image: godshield-api:local
+    container_name: godshield-api
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "8090:8090"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      GODSHIELD_PORT: "8090"
+      GODSHIELD_ALLOWED_ORIGIN: ${GODSHIELD_ALLOWED_ORIGIN:-https://q-lock-ecosystem.com}
+      GODSHIELD_ADMIN_TOKEN: ${GODSHIELD_ADMIN_TOKEN:-}
+      GODSHIELD_GATEWAY_KEY: ${GODSHIELD_GATEWAY_KEY:-}
+      GODSHIELD_POLICY_ID: ${GODSHIELD_POLICY_ID:-gw-v1}
+    networks: [qlock-net]
+
+  # ── Edge ─────────────────────────────────────────────────────────────
+
+  # Unified frontend. Static, no build step — nginx serves the single
+  # index.html directly. Replaces qlock-control, nev369-explorer,
+  # nev369-bridge-prototype and the separate marketing page.
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: qlock-nginx
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/proxy_params_qlock:/etc/nginx/proxy_params_qlock:ro
+      - ./apps/qlock-web:/usr/share/nginx/html:ro
+      - ./apps/nev369-explorer:/usr/share/nginx/explorer:ro
+      - ./apps/downloads:/usr/share/nginx/downloads:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # Let's Encrypt renewal challenges (certbot --webroot writes here).
+      - ./nginx/certbot:/var/www/certbot:ro
+    depends_on:
+      - escrow
+      - nev369-node-1
+    networks: [qlock-net]
+
+  # ── Observability ────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: qlock-prometheus
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    networks: [qlock-net]
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: qlock-grafana
+    <<: [*default-restart]
+    logging: *default-logging
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks: [qlock-net]
+
+# ═══════════════════════════════════════════════════════════════════════
+
+networks:
+  qlock-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  # Each node gets its own sled directory. Sharing one would corrupt
+  # both — sled takes an exclusive lock, and two chains writing one
+  # store is not a thing that recovers.
+  nev369_data_1:
+  nev369_data_2:
+  bridge_data:
+  prometheus_data:
+  grafana_data:

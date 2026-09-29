@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1.7
+# ═══════════════════════════════════════════════════════════════════════
+# qlock-escrow — XRPL settlement backend (Axum + Postgres)
+#
+# There was no Dockerfile for this crate. The earlier packaging covered
+# NEV369 only, and the CI workflow built `./backend` — a directory that
+# does not exist in this layout. The escrow service is the one that
+# actually faces customers, so it needs an image.
+#
+# The build is hermetic: queries use sqlx's runtime API, so no live
+# database is needed at image-build time.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Builder ────────────────────────────────────────────────────────────
+FROM rust:1.88.0-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev ca-certificates clang \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Cargo.lock is committed and copied so the image builds the exact
+# dependency graph that was tested. A consensus binary resolving a
+# different patch of a signature crate than the one under test is a fork
+# waiting to happen.
+#
+# Generate it once with `cargo generate-lockfile` (or any cargo build)
+# and commit it. `--locked` then guarantees the image resolves exactly
+# the dependency graph that was tested.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates ./crates
+
+# No .sqlx/ offline data is needed: every query uses sqlx's runtime API
+# (sqlx::query / query_as), not the compile-time query! macros, so the
+# build never needs a database.
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --locked --bin qlock-escrow \
+ && cp /app/target/release/qlock-escrow /usr/local/bin/qlock-escrow
+
+# ── Runtime ────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl3 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1001 -s /usr/sbin/nologin qlock
+
+COPY --from=builder /usr/local/bin/qlock-escrow /usr/local/bin/qlock-escrow
+
+USER qlock
+WORKDIR /home/qlock
+
+EXPOSE 8080
+
+ENV RUST_LOG=info,sqlx=warn
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
+
+# No default QLOCK_ENV. Defaulting it to "production" would make the
+# fail-closed attestation guard fire on every casual `docker run`;
+# defaulting it to "development" in an image that might get deployed is
+# worse. Compose and your orchestrator set it explicitly.
+ENTRYPOINT ["qlock-escrow"]

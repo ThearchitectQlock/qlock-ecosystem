@@ -1,0 +1,328 @@
+{
+  "title": "Q-Lock \u2014 NEV369 and Escrow",
+  "uid": "qlock-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "qlock",
+    "nev369"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "DS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Height",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "max(nev369_height)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Difficulty",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "max(nev369_difficulty)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Circulating NEV",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "max(nev369_circulating_supply_units) / 1e8",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Reorgs (since start)",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(nev369_reorgs_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value"
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Chain height by node",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "nev369_height",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Tip age",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "nev369_tip_age_seconds",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Mempool",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "nev369_mempool_size",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Blocks mined / 10m",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "increase(nev369_blocks_mined_total[10m])",
+          "legendFormat": "{{node}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "Transactions accepted vs rejected / 5m",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "increase(nev369_tx_accepted_total[5m])",
+          "legendFormat": "accepted {{node}}",
+          "refId": "A"
+        },
+        {
+          "expr": "increase(nev369_tx_rejected_total[5m])",
+          "legendFormat": "rejected {{node}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Escrow requests / 5m",
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "targets": [
+        {
+          "expr": "increase(qlock_http_requests_total[5m])",
+          "legendFormat": "requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 10
+    }
+  ]
+}

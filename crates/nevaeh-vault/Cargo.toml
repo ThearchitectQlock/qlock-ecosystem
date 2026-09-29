@@ -1,0 +1,24 @@
+[package]
+name = "nevaeh-vault"
+description = "Shamir-split, AES-GCM encrypted, time-locked vaults for long-horizon key custody."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+godshield-core = { workspace = true }
+# Pinned exactly in the workspace manifest. docs/nevaeh-vault-ceremony.md
+# transcribes this crate's wire format in plain English for 2039
+# recovery; changing the version silently invalidates that document.
+sharks = { workspace = true }
+aes-gcm = { workspace = true }
+argon2 = { workspace = true }
+zeroize = { workspace = true }
+rand = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
