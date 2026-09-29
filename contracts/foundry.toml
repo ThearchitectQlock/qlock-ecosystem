@@ -44,7 +44,7 @@ cbor_metadata = false
 # Fail the build on any warning. In Solidity a warning is routinely a
 # shadowed variable or an unused return value, and in a bridge either can
 # be a fund-loss bug.
-deny_warnings = true
+deny = "warnings"
 
 fs_permissions = [{ access = "read", path = "./deployments" }]
 

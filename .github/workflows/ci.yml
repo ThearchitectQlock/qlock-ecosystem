@@ -196,9 +196,14 @@ jobs:
           done
       - name: Genesis dedication present
         run: |
-          grep -q "I taught myself Rust" apps/qlock-web/index.html
+          # The console wraps the sentence across lines; compare with
+          # whitespace collapsed.
+          tr -s '[:space:]' ' ' < apps/qlock-web/index.html | grep -q "I taught myself Rust"
           grep -q "block_dedication" apps/nev369-explorer/index.html
           grep -q "I taught myself Rust" crates/nev369-node/src/genesis.rs
+          # Independent re-implementation of the block hash rebuilds genesis
+          # from the published chain spec and must hit the pinned hash.
+          python3 scripts/verify-chain.py --offline
           echo "✓ dedication in genesis, console and explorer"
 
   # ── EVM contracts ────────────────────────────────────────────────────
@@ -233,7 +238,10 @@ jobs:
           FOUNDRY_PROFILE: ci
         run: forge test -vvv
 
+      # Informational: coverage compiles without the optimiser, which
+      # raises contract-size warnings that don't apply to the real build.
       - name: Coverage
+        continue-on-error: true
         run: forge coverage --report summary
 
       - name: Bridge invariants must be declared
@@ -253,7 +261,9 @@ jobs:
             echo "::error::wNEV decimals must be 8 to match chain.rs DECIMALS"
             exit 1
           }
-          grep -qE 'security/(Pausable|ReentrancyGuard)\.sol' src/*.sol && {
+          # Import lines only: NEV369Bridge.sol's header comment names the
+          # old v4 paths on purpose, to explain the move.
+          grep -qE '^[[:space:]]*import .*security/(Pausable|ReentrancyGuard)\.sol' src/*.sol && {
             echo "::error::OpenZeppelin v4 import path found — pinned to v5 (utils/)"
             exit 1
           }
