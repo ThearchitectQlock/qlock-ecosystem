@@ -63,6 +63,16 @@ contract NEV369BridgeTest is Test {
         vm.warp(block.timestamp + 48 hours);
         bridge.finalizeMintLimit();
         vm.stopPrank();
+
+        // Invariant fuzzing: never impersonate the contracts themselves.
+        // A transaction can't be sent FROM a contract address, but the
+        // fuzzer can prank one, and "the bridge calls wNEV.mint directly"
+        // skips the bridge's own accounting. That's a harness artifact,
+        // not a reachable path, so rule it out and fuzz real callers.
+        excludeSender(address(bridge));
+        excludeSender(address(token));
+        targetContract(address(bridge));
+        targetContract(address(token));
     }
 
     // ── helpers ──────────────────────────────────────────────────────
