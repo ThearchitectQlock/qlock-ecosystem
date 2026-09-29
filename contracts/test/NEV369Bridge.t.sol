@@ -351,6 +351,27 @@ contract NEV369BridgeTest is Test {
         bridge.mintFromNEV369(user, ONE_NEV, lockId, "tx", 100, sigs);
     }
 
+    /// Found by the invariant fuzzer: grantRole bypassed the 48h timelock.
+    function test_admin_cannot_grant_bridge_role_directly() public {
+        bytes32 role = token.BRIDGE_ROLE();
+        vm.prank(admin);
+        vm.expectRevert(wNEV.BridgeRoleIsTimelocked.selector);
+        token.grantRole(role, admin);
+
+        // ...so the admin can't mint around the bridge either.
+        vm.prank(admin);
+        vm.expectRevert();
+        token.mint(admin, ONE_NEV);
+        assertEq(token.totalSupply(), bridge.totalMinted());
+    }
+
+    function test_admin_can_still_revoke_a_bridge_at_once() public {
+        bytes32 role = token.BRIDGE_ROLE();
+        vm.prank(admin);
+        token.revokeRole(role, address(bridge));
+        assertFalse(token.hasRole(role, address(bridge)));
+    }
+
     // ── Invariant ────────────────────────────────────────────────────
 
     function invariant_circulating_never_exceeds_total_minted() public view {

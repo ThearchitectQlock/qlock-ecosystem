@@ -129,6 +129,7 @@ contract wNEV is ERC20, AccessControl, Pausable {
     error NoPendingBridge();
     error TimelockNotElapsed(uint256 eta, uint256 now_);
     error ExceedsMaxSupply(uint256 requested, uint256 remaining);
+    error BridgeRoleIsTimelocked();
 
     /**
      * @param admin Role admin. MUST be a multisig (Gnosis Safe or
@@ -204,6 +205,22 @@ contract wNEV is ERC20, AccessControl, Pausable {
     // Pause — immediate, no timelock. Delaying an emergency brake
     // defeats its purpose.
     // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice BRIDGE_ROLE can only be granted through proposeBridge /
+     *         finalizeBridge, never directly.
+     * @dev AccessControl's public grantRole let DEFAULT_ADMIN_ROLE hand
+     *      BRIDGE_ROLE (mint authority) to any address instantly, skipping
+     *      the 48-hour timelock entirely. The invariant fuzzer found it:
+     *      as the admin it granted itself BRIDGE_ROLE and minted wNEV the
+     *      bridge never recorded (totalSupply > bridge.totalMinted).
+     *      Revoking BRIDGE_ROLE stays available, so a compromised bridge
+     *      can still be cut off at once.
+     */
+    function grantRole(bytes32 role, address account) public override {
+        if (role == BRIDGE_ROLE) revert BridgeRoleIsTimelocked();
+        super.grantRole(role, account);
+    }
 
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
