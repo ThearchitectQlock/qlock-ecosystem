@@ -18,6 +18,16 @@ One cryptographic core. Two ledgers built on it. A security platform around both
 
 ---
 
+## 🔒 Official $QLE Token
+
+- **Network:** Solana (pump.fun)
+- **Ticker:** $QLE
+- **Contract (CA):** `GwMdHJ35z7ypC9hfWvmsuACcU2wvoeXoikqXcQ61pump`
+
+⚠️ This is the **only** official contract address. It is published here, on
+[q-lock-ecosystem.com](https://q-lock-ecosystem.com) and on X
+([@qlockCEO](https://x.com/qlockCEO)). Any other address is a scam — do not trust it.
+
 ## Contents
 
 - [What this is](#what-this-is)
