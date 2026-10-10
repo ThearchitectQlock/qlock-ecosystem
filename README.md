@@ -22,7 +22,9 @@ One cryptographic core. Two ledgers built on it. A security platform around both
 
 - **Network:** Solana (pump.fun)
 - **Ticker:** $QLE
-- **Contract (CA):** `GwMdHJ35z7ypC9hfWvmsuACcU2wvoeXoikqXcQ61pump`
+- **Contract (CA):** `9rBHCctP1dGvdDq33GoT368yY51KwWXVihmffgTbpump
+
+
 
 ⚠️ This is the **only** official contract address. It is published here, on
 [q-lock-ecosystem.com](https://q-lock-ecosystem.com) and on X
